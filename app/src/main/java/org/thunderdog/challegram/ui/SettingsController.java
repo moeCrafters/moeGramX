@@ -883,14 +883,9 @@ public class SettingsController extends ViewController<Void> implements
   }
 
   private void applyPersonalChannel (ListItem item, TdApi.Chat chat) {
-    TdApi.FormattedText preview = null;
-    String time = null;
-    if (chat.lastMessage != null) {
-      preview = ContentPreview.getChatListPreview(tdlib, chat.id, chat.lastMessage, false).buildFormattedText(false);
-      time = Lang.time(chat.lastMessage.date, TimeUnit.SECONDS);
-    }
-    item.setData(new Pair<>(new DoubleTextWrapper(tdlib, chat, false, false), preview));
-    item.setStringValue(time);
+    ContentPreview preview = ContentPreview.getChatListPreview(tdlib, chat.id, chat.lastMessage, false);
+    item.setData(new Pair<>(new DoubleTextWrapper(tdlib, chat, false, false), preview.buildFormattedText(false)));
+    item.setStringValue(Lang.time(chat.lastMessage.date, TimeUnit.SECONDS));
     item.setIntValue(tdlib.chatMemberCount(chat.id));
   }
 
@@ -898,7 +893,7 @@ public class SettingsController extends ViewController<Void> implements
     TdApi.Chat chat = userFull != null && userFull.personalChatId != 0 ? tdlib.chat(userFull.personalChatId) : null;
     int position = adapter.indexOfViewById(R.id.btn_personalChannel);
     boolean had = position != -1;
-    boolean has = chat != null;
+    boolean has = chat != null && chat.lastMessage != null;
     if (had != has) {
       if (has) {
         int peerIdIndex = adapter.indexOfViewById(R.id.btn_peer_id);
