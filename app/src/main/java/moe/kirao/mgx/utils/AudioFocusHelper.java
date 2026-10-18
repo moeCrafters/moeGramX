@@ -7,6 +7,7 @@ import androidx.annotation.NonNull;
 
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.tool.UI;
+import org.thunderdog.challegram.unsorted.AppContext;
 
 import moe.kirao.mgx.MoexConfig;
 
@@ -67,7 +68,7 @@ public final class AudioFocusHelper {
   }
 
   private static AudioManager audioManager () {
-    Context ctx = UI.getAppContext();
+    Context ctx = AppContext.get();
     return ctx != null ? (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE) : null;
   }
 }

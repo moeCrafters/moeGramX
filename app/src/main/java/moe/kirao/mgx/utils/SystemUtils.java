@@ -29,6 +29,7 @@ import org.thunderdog.challegram.core.Background;
 import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.data.TD;
 import org.thunderdog.challegram.tool.UI;
+import org.thunderdog.challegram.unsorted.AppContext;
 import org.thunderdog.challegram.util.Permissions;
 
 import java.io.ByteArrayOutputStream;
@@ -58,9 +59,9 @@ public class SystemUtils {
 
   public static void copyFileToClipboard (TdApi.File file, @StringRes int toast) {
     try {
-      ClipboardManager clipboard = (ClipboardManager) UI.getAppContext().getSystemService(Context.CLIPBOARD_SERVICE);
+      ClipboardManager clipboard = (ClipboardManager) AppContext.get().getSystemService(Context.CLIPBOARD_SERVICE);
       if (clipboard != null) {
-        ClipData clip = ClipData.newUri(UI.getAppContext().getContentResolver(), "image", getUri(file.local.path));
+        ClipData clip = ClipData.newUri(AppContext.get().getContentResolver(), "image", getUri(file.local.path));
         clipboard.setPrimaryClip(clip);
         if (shouldShowClipboardToast()) {
           UI.showToast(toast, Toast.LENGTH_SHORT);
@@ -140,7 +141,7 @@ public class SystemUtils {
   }
 
   public static Uri getUri (String path) {
-    return FileProvider.getUriForFile(UI.getAppContext(), Config.FILE_PROVIDER_AUTHORITY, new File(path));
+    return FileProvider.getUriForFile(AppContext.get(), Config.FILE_PROVIDER_AUTHORITY, new File(path));
   }
 
   @Nullable
@@ -200,7 +201,7 @@ public class SystemUtils {
 
   public static boolean isVpnActive () {
     try {
-      ConnectivityManager cm = (ConnectivityManager) UI.getAppContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+      ConnectivityManager cm = (ConnectivityManager) AppContext.get().getSystemService(Context.CONNECTIVITY_SERVICE);
       if (cm == null) {
         return false;
       }
@@ -218,7 +219,7 @@ public class SystemUtils {
 
   public static void registerVpnStateListener (Runnable onChanged) {
     try {
-      ConnectivityManager cm = (ConnectivityManager) UI.getAppContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+      ConnectivityManager cm = (ConnectivityManager) AppContext.get().getSystemService(Context.CONNECTIVITY_SERVICE);
       if (cm == null) {
         return;
       }

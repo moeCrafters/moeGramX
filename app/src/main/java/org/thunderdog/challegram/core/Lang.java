@@ -348,7 +348,7 @@ public class Lang {
   private static Resources getAppLocaleResources () {
     String packId = packId();
     if (appLocaleResources == null || !packId.equals(appLocaleResourcesPackId)) {
-      Resources appResources = UI.getAppContext().getResources();
+      Resources appResources = AppContext.get().getResources();
       Resources localeResources = appResources;
       try {
         String languageCode = packId.startsWith("X") ? normalizeLanguageCode(packId) : packId;
@@ -364,7 +364,7 @@ public class Lang {
         Configuration configuration = new Configuration(appResources.getConfiguration());
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
           configuration.setLocale(locale);
-          localeResources = UI.getAppContext().createConfigurationContext(configuration).getResources();
+          localeResources = AppContext.get().createConfigurationContext(configuration).getResources();
         } else {
           configuration.locale = locale;
           localeResources = new Resources(appResources.getAssets(), appResources.getDisplayMetrics(), configuration);
