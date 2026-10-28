@@ -42,22 +42,15 @@ import android.media.MediaScannerConnection;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
-import android.opengl.EGL14;
-import android.opengl.EGLConfig;
-import android.opengl.EGLContext;
-import android.opengl.EGLDisplay;
-import android.opengl.EGLSurface;
 import android.opengl.GLES10;
 import android.opengl.GLES20;
 import android.opengl.GLUtils;
 import android.os.Build;
 import android.os.Environment;
-import android.os.LocaleList;
 import android.os.Parcelable;
 import android.os.PowerManager;
 import android.os.StatFs;
 import android.os.SystemClock;
-import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.text.BoringLayout;
@@ -141,6 +134,7 @@ import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.TGMimeType;
 import org.thunderdog.challegram.tool.UI;
 import org.thunderdog.challegram.ui.TextController;
+import org.thunderdog.challegram.unsorted.AppContext;
 import org.thunderdog.challegram.util.AppBuildInfo;
 import org.thunderdog.challegram.util.Permissions;
 import org.thunderdog.challegram.util.text.TextReplacementSpan;
@@ -237,7 +231,7 @@ public class U {
 
   public static boolean isRoaming() {
     try {
-      ConnectivityManager cm = (ConnectivityManager) UI.getAppContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+      ConnectivityManager cm = (ConnectivityManager) AppContext.get().getSystemService(Context.CONNECTIVITY_SERVICE);
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
         android.net.Network network = cm.getActiveNetwork();
         android.net.NetworkCapabilities capabilities = cm.getNetworkCapabilities(network);
@@ -366,7 +360,7 @@ public class U {
     ArrayList<String> results = null;
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) { //Method 1 for KitKat & above
-      File[] externalDirs = UI.getAppContext().getExternalFilesDirs(null);
+      File[] externalDirs = AppContext.get().getExternalFilesDirs(null);
 
       for (File file : externalDirs) {
         String path = file.getPath().split("/Android")[0];
@@ -479,6 +473,10 @@ public class U {
   }
 
   public static void startForeground (Service service, int notificationId, Notification notification) {
+    startForeground(service, notificationId, notification, false);
+  }
+
+  public static void startForeground (Service service, int notificationId, Notification notification, boolean callAnswered) {
     if (notification == null)
       throw new IllegalArgumentException();
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -490,7 +488,11 @@ public class U {
         case TdlibNotificationManager.ID_FOREGROUND_ONGOING_CALL_NOTIFICATION:
         case TdlibNotificationManager.ID_FOREGROUND_INCOMING_CALL_NOTIFICATION: {
           int knownType = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL;
-          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && (
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
+            callAnswered ||
+            notificationId == TdlibNotificationManager.ID_FOREGROUND_ONGOING_CALL_NOTIFICATION
+          )) {
             knownType |= android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
           }
           knownType |= android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK;
@@ -917,7 +919,7 @@ public class U {
   public static String getNotificationChannel (String id, int stringRes) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       android.app.NotificationChannel channel = new android.app.NotificationChannel(id, Lang.getString(stringRes), NotificationManager.IMPORTANCE_LOW);
-      NotificationManager manager = (NotificationManager) UI.getAppContext().getSystemService(Context.NOTIFICATION_SERVICE);
+      NotificationManager manager = (NotificationManager) AppContext.get().getSystemService(Context.NOTIFICATION_SERVICE);
       try {
         manager.createNotificationChannel(channel);
       } catch (Throwable t) {
@@ -948,49 +950,54 @@ public class U {
       return maxTextureSize[0];
     }
 
-    EGLDisplay dpy = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
+    android.opengl.EGLDisplay dpy = android.opengl.EGL14.eglGetDisplay(
+      android.opengl.EGL14.EGL_DEFAULT_DISPLAY
+    );
     int[] vers = new int[2];
-    EGL14.eglInitialize(dpy, vers, 0, vers, 1);
+    android.opengl.EGL14.eglInitialize(dpy, vers, 0, vers, 1);
 
 
     int[] configAttr = {
-      EGL14.EGL_COLOR_BUFFER_TYPE, EGL14.EGL_RGB_BUFFER,
-      EGL14.EGL_LEVEL, 0,
-      EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
-      EGL14.EGL_SURFACE_TYPE, EGL14.EGL_PBUFFER_BIT,
-      EGL14.EGL_NONE
+      android.opengl.EGL14.EGL_COLOR_BUFFER_TYPE, android.opengl.EGL14.EGL_RGB_BUFFER,
+      android.opengl.EGL14.EGL_LEVEL, 0,
+      android.opengl.EGL14.EGL_RENDERABLE_TYPE, android.opengl.EGL14.EGL_OPENGL_ES2_BIT,
+      android.opengl.EGL14.EGL_SURFACE_TYPE, android.opengl.EGL14.EGL_PBUFFER_BIT,
+      android.opengl.EGL14.EGL_NONE
     };
-    EGLConfig[] configs = new EGLConfig[1];
+    android.opengl.EGLConfig[] configs = new android.opengl.EGLConfig[1];
     int[] numConfig = new int[1];
-    EGL14.eglChooseConfig(dpy, configAttr, 0,
+    android.opengl.EGL14.eglChooseConfig(dpy, configAttr, 0,
       configs, 0, 1, numConfig, 0);
     if (numConfig[0] == 0) {
       // TROUBLE! No config found.
       return 0;
     }
-    EGLConfig config = configs[0];
+    android.opengl.EGLConfig config = configs[0];
 
     int[] surfAttr = {
-      EGL14.EGL_WIDTH, 64,
-      EGL14.EGL_HEIGHT, 64,
-      EGL14.EGL_NONE
+      android.opengl.EGL14.EGL_WIDTH, 64,
+      android.opengl.EGL14.EGL_HEIGHT, 64,
+      android.opengl.EGL14.EGL_NONE
     };
-    EGLSurface surf = EGL14.eglCreatePbufferSurface(dpy, config, surfAttr, 0);
+    android.opengl.EGLSurface surf = android.opengl.EGL14.eglCreatePbufferSurface(dpy, config, surfAttr, 0);
 
     int[] ctxAttrib = {
-      EGL14.EGL_CONTEXT_CLIENT_VERSION, 2,
-      EGL14.EGL_NONE
+      android.opengl.EGL14.EGL_CONTEXT_CLIENT_VERSION, 2,
+      android.opengl.EGL14.EGL_NONE
     };
-    EGLContext ctx = EGL14.eglCreateContext(dpy, config, EGL14.EGL_NO_CONTEXT, ctxAttrib, 0);
+    android.opengl.EGLContext ctx = android.opengl.EGL14.eglCreateContext(dpy, config, android.opengl.EGL14.EGL_NO_CONTEXT, ctxAttrib, 0);
 
-    EGL14.eglMakeCurrent(dpy, surf, surf, ctx);
+    android.opengl.EGL14.eglMakeCurrent(dpy, surf, surf, ctx);
     GLES20.glGetIntegerv(GLES20.GL_MAX_TEXTURE_SIZE, maxTextureSize, 0);
 
-    EGL14.eglMakeCurrent(dpy, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE,
-      EGL14.EGL_NO_CONTEXT);
-    EGL14.eglDestroySurface(dpy, surf);
-    EGL14.eglDestroyContext(dpy, ctx);
-    EGL14.eglTerminate(dpy);
+    android.opengl.EGL14.eglMakeCurrent(dpy,
+      android.opengl.EGL14.EGL_NO_SURFACE,
+      android.opengl.EGL14.EGL_NO_SURFACE,
+      android.opengl.EGL14.EGL_NO_CONTEXT
+    );
+    android.opengl.EGL14.eglDestroySurface(dpy, surf);
+    android.opengl.EGL14.eglDestroyContext(dpy, ctx);
+    android.opengl.EGL14.eglTerminate(dpy);
 
     return maxTextureSize[0];
   }
@@ -1184,7 +1191,7 @@ public class U {
   public static Uri contentUriFromFile (File file) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
       try {
-        return FileProvider.getUriForFile(UI.getAppContext(), Config.FILE_PROVIDER_AUTHORITY, file);
+        return FileProvider.getUriForFile(AppContext.get(), Config.FILE_PROVIDER_AUTHORITY, file);
       } catch (Throwable t) {
         Log.e("Can't create content uri for path", t);
         // UI.showToast("Could not open path: " + file.getPath() + ", reason: " + t.getMessage(), Toast.LENGTH_LONG);
@@ -1198,20 +1205,20 @@ public class U {
   public static String tryResolveFilePath (final Uri uri) {
     String result = null;
     try {
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT && DocumentsContract.isDocumentUri(UI.getContext(), uri)) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT && android.provider.DocumentsContract.isDocumentUri(UI.getContext(), uri)) {
         if (isExternalStorageDocument(uri)) {
-          final String docId = DocumentsContract.getDocumentId(uri);
+          final String docId = android.provider.DocumentsContract.getDocumentId(uri);
           final String[] split = docId.split(":", 2);
           final String type = split[0];
           if ("primary".equalsIgnoreCase(type)) {
             result = Environment.getExternalStorageDirectory() + "/" + split[1];
           }
         } else if (isDownloadsDocument(uri)) {
-          final String id = DocumentsContract.getDocumentId(uri);
+          final String id = android.provider.DocumentsContract.getDocumentId(uri);
           final Uri contentUri = ContentUris.withAppendedId(Uri.parse("content://downloads/public_downloads"), StringUtils.parseLong(id));
           result = getDataColumn(UI.getContext(), contentUri, null, null);
         } else if (isMediaDocument(uri)) {
-          final String docId = DocumentsContract.getDocumentId(uri);
+          final String docId = android.provider.DocumentsContract.getDocumentId(uri);
           final String[] split = docId.split(":", 2);
           final String type = split[0];
 
@@ -1994,9 +2001,9 @@ public class U {
       FileUtils.deleteFile(file);
       return;
     }
-    MediaScannerConnection.scanFile(UI.getAppContext(), new String[] {file.getPath()}, null, (path, uri) -> {
+    MediaScannerConnection.scanFile(AppContext.get(), new String[] {file.getPath()}, null, (path, uri) -> {
       if (uri != null) {
-        UI.getAppContext().getContentResolver().delete(uri, null, null);
+        AppContext.get().getContentResolver().delete(uri, null, null);
       }
       FileUtils.deleteFile(file);
     });
@@ -2010,7 +2017,7 @@ public class U {
     if (file == null)
       return;
     /*String mimeType = TGMimeType.mimeTypeForExtension(U.getExtension(file.getPath()));
-    MediaScannerConnection.scanFile(UI.getAppContext(), new String[] {file.getPath()}, !Strings.isEmpty(mimeType) ? new String[] {mimeType} : null, (path, uri) -> {
+    MediaScannerConnection.scanFile(AppContext.get(), new String[] {file.getPath()}, !Strings.isEmpty(mimeType) ? new String[] {mimeType} : null, (path, uri) -> {
 
     });*/
     Uri uri = Uri.fromFile(file);
@@ -2360,7 +2367,7 @@ public class U {
     String metadata = Lang.getAppBuildAndVersion(tdlib) + " (" + BuildConfig.COMMIT + ")\n" +
       (!buildInfo.getPullRequests().isEmpty() ? "PRs: " + buildInfo.pullRequestsList() + "\n" : "") +
       (!"none".equals(BuildConfig.TGX_EXTENSION) ? "Extension: " + BuildConfig.TGX_EXTENSION + "\n" : "") +
-      (!BuildConfig.LATEST_FLAVOR ? ("flavor: " + BuildConfig.FLAVOR_SDK + "\n") : "") +
+      (!BuildConfig.LATEST_FLAVOR ? ("flavor: " + BuildConfig.FLAVOR + "\n") : "") +
       "TDLib: " + Td.tdlibVersion() + " (tdlib/td@" + Td.tdlibCommitHash() + ")\n" +
       "androidx-media3: " + MediaLibraryInfo.VERSION + " [" + MediaLibraryInfo.registeredModules().replaceAll("(?<=^| )media3\\.", "") + "]\n" +
       "tgcalls: TGX-Android/tgcalls@" + BuildConfig.TGCALLS_COMMIT + "\n" +
@@ -2370,13 +2377,13 @@ public class U {
       "Device: " + Build.MANUFACTURER + " " + Build.BRAND + " " + Build.MODEL + " (" + Build.DISPLAY + ")\n" +
       "Screen: " + Screen.widestSide() + "x" + Screen.smallestSide() + " (density: " + Screen.density() + ", fps: " + Screen.refreshRate() + ")" + "\n" +
       "Build: `" + Build.FINGERPRINT + "`\n" +
-      "Package: " + UI.getAppContext().getPackageName() + "\n" +
+      "Package: " + AppContext.get().getPackageName() + "\n" +
       "Locale: " + locale + (!locale.equals(appLocale) ? " (app: " + appLocale + ")" : "");
-    String installerName = AppInstallationUtil.getInstallerPackageName(UI.getAppContext());
+    String installerName = AppInstallationUtil.getInstallerPackageName(AppContext.get());
     if (!StringUtils.isEmpty(installerName)) {
       metadata += "\nInstaller: " + AppInstallationUtil.prettifyPackageName(installerName);
     }
-    String initiatorName = AppInstallationUtil.getInitiatorPackageName(UI.getAppContext());
+    String initiatorName = AppInstallationUtil.getInitiatorPackageName(AppContext.get());
     if (!StringUtils.isEmpty(initiatorName)) {
       metadata += "\nInitiator: " + AppInstallationUtil.prettifyPackageName(initiatorName);
     }
@@ -2398,7 +2405,7 @@ public class U {
   @Nullable
   public static String getApkFingerprint (String algorithm, boolean needSeparator) {
     try {
-      final PackageInfo info = UI.getAppContext().getPackageManager()
+      final PackageInfo info = AppContext.get().getPackageManager()
         .getPackageInfo(BuildConfig.APPLICATION_ID, PackageManager.GET_SIGNATURES);
       for (Signature signature : info.signatures) {
         final MessageDigest md = MessageDigest.getInstance(algorithm);
@@ -2648,9 +2655,9 @@ public class U {
     try {
       File appDir;
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-        appDir = UI.getAppContext().getDataDir();
+        appDir = AppContext.get().getDataDir();
       } else {
-        appDir = UI.getAppContext().getFilesDir().getParentFile();
+        appDir = AppContext.get().getFilesDir().getParentFile();
       }
       File prefsDir = new File(appDir, "shared_prefs");
       if (prefsDir.exists()) {
@@ -2668,7 +2675,7 @@ public class U {
   public static boolean deleteSharedPreferences (String name) {
     try {
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-        return UI.getAppContext().deleteSharedPreferences(name);
+        return AppContext.get().deleteSharedPreferences(name);
       } else {
         File file = sharedPreferencesFile(name);
         return file != null && file.delete();
@@ -2928,7 +2935,7 @@ public class U {
 
   public static boolean isInternalUri (Uri uri) {
     String pathString = normalizeFilePath(uri.getPath());
-    File dir = UI.getAppContext().getFilesDir();
+    File dir = AppContext.get().getFilesDir();
     return !StringUtils.isEmpty(pathString) && pathString.startsWith(dir.getPath());
   }
 
@@ -3450,7 +3457,7 @@ public class U {
 
   public static String[] getInputLanguages () {
     final List<String> inputLanguages = new ArrayList<>();
-    InputMethodManager imm = (InputMethodManager) UI.getAppContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+    InputMethodManager imm = (InputMethodManager) AppContext.get().getSystemService(Context.INPUT_METHOD_SERVICE);
     if (imm != null) {
       String inputLanguageCode = null;
       try {
@@ -3468,7 +3475,7 @@ public class U {
     if (inputLanguages.isEmpty()) {
       try {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-          LocaleList locales = Resources.getSystem().getConfiguration().getLocales();
+          android.os.LocaleList locales = Resources.getSystem().getConfiguration().getLocales();
           for (int i = 0; i < locales.size(); i++) {
             String code = LocaleUtils.toBcp47Language(locales.get(i));
             if (!StringUtils.isEmpty(code) && !inputLanguages.contains(code))
@@ -3581,19 +3588,12 @@ public class U {
 
   public static String getPreferredAbiFlavor () {
     final String abi = U.getCpuAbi();
-    final String flavor = switch (abi) {
+    return switch (abi) {
       case "arm64-v8a" -> "arm64";
       case "armeabi-v7a" -> "arm32";
       case "x86" -> "x86";
       case "x86_64", "x64" -> "x64";
       default -> null;
     };
-    if (flavor == null) {
-      String[] flavors = new String[] {"arm64", "arm32", "x86", "x64"};
-      if (ArrayUtils.contains(flavors, BuildConfig.FLAVOR_ABI)) {
-        return BuildConfig.FLAVOR_ABI;
-      }
-    }
-    return flavor;
   }
 }

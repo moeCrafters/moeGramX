@@ -1340,7 +1340,7 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
   }
 
   private void addStartupMarker () {
-    if (Config.ENABLE_BASELINE_PROFILE_HOOKS) {
+    if (Config.ENABLE_TEST_HOOKS) {
       tdlib.awaitConnection(() -> runOnUiThreadOptional(() -> {
         ViewGroup group = (ViewGroup) getWrapUnchecked();
         if (group.findViewById(R.id.startup_marker) == null) {
@@ -1353,7 +1353,7 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
   private boolean notificationsRequested;
 
   private void showAnnoyingAlertsForCompliance (boolean fromAppResume) {
-    if (Config.ENABLE_BASELINE_PROFILE_HOOKS) {
+    if (Config.ENABLE_TEST_HOOKS) {
       addStartupMarker();
     }
     if (checkSyncAlert()) {
