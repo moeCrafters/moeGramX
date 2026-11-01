@@ -17,12 +17,14 @@ package org.thunderdog.challegram.ui;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.util.Pair;
 import android.util.SparseIntArray;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
@@ -35,6 +37,8 @@ import androidx.collection.SparseArrayCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import org.drinkless.tdlib.TdApi;
+import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.U;
 import org.thunderdog.challegram.charts.BaseChartView;
 import org.thunderdog.challegram.charts.Chart;
@@ -71,6 +75,8 @@ import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.UI;
 import org.thunderdog.challegram.tool.Views;
 import org.thunderdog.challegram.util.FloatListener;
+import org.thunderdog.challegram.util.text.Text;
+import org.thunderdog.challegram.util.text.TextEntity;
 import org.thunderdog.challegram.util.HeightChangeListener;
 import org.thunderdog.challegram.util.SelectableItemDelegate;
 import org.thunderdog.challegram.v.CustomRecyclerView;
@@ -1883,6 +1889,33 @@ public class SettingsAdapter extends RecyclerView.Adapter<SettingHolder> impleme
       case ListItem.TYPE_CHAT_VERTICAL:
       case ListItem.TYPE_CHAT_VERTICAL_FULLWIDTH: {
         setChatData(item, (VerticalChatView) holder.itemView);
+        break;
+      }
+      case ListItem.TYPE_CHAT_PROFILE: {
+        FrameLayoutFix wrapView = (FrameLayoutFix) holder.itemView;
+        SmallChatView chatView = (SmallChatView) wrapView.getChildAt(0);
+        @SuppressWarnings("unchecked")
+        Pair<DoubleTextWrapper, TdApi.FormattedText> data = (Pair<DoubleTextWrapper, TdApi.FormattedText>) item.getData();
+        chatView.setChat(data.first);
+        chatView.setId(item.getId());
+
+        TextView timeView = (TextView) wrapView.getChildAt(1);
+        String timeStr = item.getStringValue();
+        timeView.setText(timeStr);
+        timeView.setVisibility(StringUtils.isEmpty(timeStr) ? View.GONE : View.VISIBLE);
+
+        LinearLayout textColumn = (LinearLayout) wrapView.getChildAt(2);
+        CustomTextView subtitleView = (CustomTextView) textColumn.getChildAt(0);
+        TdApi.FormattedText formatted = data.second;
+        TextEntity[] entities = TextEntity.valueOf(tdlib, formatted, null);
+        subtitleView.setText(formatted.text, entities, Text.FLAG_IGNORE_CONTINUOUS_NEWLINES, false);
+
+        TextView membersView = (TextView) textColumn.getChildAt(1);
+        int memberCount = item.getIntValue();
+        membersView.setText(memberCount > 0 ? Lang.plural(R.string.xSubscribers, memberCount) : "");
+        membersView.setVisibility(memberCount > 0 ? View.VISIBLE : View.GONE);
+
+        modifyChatView(item, chatView, null, false);
         break;
       }
       default: {

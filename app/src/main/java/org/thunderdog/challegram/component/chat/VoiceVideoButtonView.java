@@ -23,8 +23,11 @@ import android.view.MotionEvent;
 import android.view.View;
 
 import org.thunderdog.challegram.R;
+import org.thunderdog.challegram.navigation.MenuMoreWrap;
 import org.thunderdog.challegram.config.Config;
+import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.navigation.TooltipOverlayView;
+import org.thunderdog.challegram.player.RecordAudioVideoController;
 import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.tool.Drawables;
@@ -32,18 +35,25 @@ import org.thunderdog.challegram.tool.Paints;
 import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.UI;
 import org.thunderdog.challegram.unsorted.Settings;
+import org.thunderdog.challegram.util.HapticMenuHelper;
+
+import java.util.List;
 
 import me.vkryl.android.AnimatorUtils;
 import me.vkryl.android.ViewUtils;
 import me.vkryl.android.animator.BoolAnimator;
 import me.vkryl.android.animator.FactorAnimator;
+import me.vkryl.core.ColorUtils;
 import me.vkryl.core.lambda.CancellableRunnable;
 import me.vkryl.core.lambda.Destroyable;
+import moe.kirao.mgx.MoexConfig;
 
-public class VoiceVideoButtonView extends View implements FactorAnimator.Target, Settings.VideoModePreferenceListener, Destroyable, TooltipOverlayView.LocationProvider {
+public class VoiceVideoButtonView extends View implements FactorAnimator.Target, Settings.VideoModePreferenceListener, Destroyable, TooltipOverlayView.LocationProvider, HapticMenuHelper.Provider, HapticMenuHelper.OnItemClickListener, HapticMenuHelper.OnItemMenuListener {
   private boolean hasTouchControls;
 
   private final Drawable sendIcon, micIcon, videoIcon, searchIcon;
+  private final HapticMenuHelper hapticMenuHelper;
+  private boolean hapticMenuHandled;
 
   public VoiceVideoButtonView (Context context) {
     super(context);
@@ -52,6 +62,9 @@ public class VoiceVideoButtonView extends View implements FactorAnimator.Target,
     videoIcon = Drawables.get(getResources(), R.drawable.deproko_baseline_msg_video_24);
     searchIcon = Drawables.get(getResources(), R.drawable.baseline_search_24);
     setInVideoMode(Settings.instance().preferVideoMode(), false);
+    hapticMenuHelper = new HapticMenuHelper(this, this, null, null)
+      .selectableMode(this)
+      .hapticListener(this);
   }
 
   @Override
@@ -72,9 +85,65 @@ public class VoiceVideoButtonView extends View implements FactorAnimator.Target,
     }
   }
 
-  private static final int ANIMATOR_VIDEO_MODE = 0, ANIMATOR_SEARCH_MODE = 1;
+  private void startAndLockRecording (boolean selected) {
+    RecordAudioVideoController controller = UI.getContext(getContext()).getRecordAudioVideoController();
+    if (controller.startRecording(this, false, selected)) {
+      this.draggingUp = true;
+      this.draggingLeft = false;
+      checkDraggingCircle();
+      controller.setReleased(true, false);
+      this.inLongTap = true;
+      this.draggingUp = false;
+      this.draggingLeft = false;
+      checkDraggingCircle();
+      controller.setTranslations(0, 0);
+    } else {
+      cancelLongTap = true;
+    }
+  }
+
+  @Override
+  public boolean onHapticMenuItemClick (View view, View parentView, HapticMenuHelper.MenuItem item) {
+    hapticMenuHandled = true;
+    startAndLockRecording(item.id == 0);
+    return true;
+  }
+
+  @Override
+  public int getAnchorMode (View view) {
+    return MenuMoreWrap.ANCHOR_MODE_CENTER;
+  }
+
+  @Override
+  public int getAnchorOffsetY (View view) {
+    return Screen.dp(6f); // Ни разу не костыль
+  }
+
+  @Override
+  public List<HapticMenuHelper.MenuItem> onCreateHapticMenu (View view) {
+    if (!inVideoMode.getValue() || MoexConfig.instance().getRoundVideos() != MoexConfig.START_WITH_ASK) {
+      return null;
+    }
+    return List.of(
+      new HapticMenuHelper.MenuItem(0, Lang.getString(R.string.frontCamera), R.drawable.baseline_camera_front_24),
+      new HapticMenuHelper.MenuItem(1, Lang.getString(R.string.RearCamera), R.drawable.baseline_camera_rear_24)
+    );
+  }
+
+  private static final int ANIMATOR_VIDEO_MODE = 0, ANIMATOR_SEARCH_MODE = 1, ANIMATOR_HAPTIC_MENU = 2;
   private final BoolAnimator inVideoMode = new BoolAnimator(ANIMATOR_VIDEO_MODE, this, AnimatorUtils.DECELERATE_INTERPOLATOR, 120l);
   private final BoolAnimator inSearchMode = new BoolAnimator(ANIMATOR_SEARCH_MODE, this, AnimatorUtils.DECELERATE_INTERPOLATOR, 180l);
+  private final BoolAnimator hapticMenuOpen = new BoolAnimator(ANIMATOR_HAPTIC_MENU, this, AnimatorUtils.DECELERATE_INTERPOLATOR, 180l);
+
+  @Override
+  public void onHapticMenuOpen () {
+    hapticMenuOpen.setValue(true, true);
+  }
+
+  @Override
+  public void onHapticMenuClose () {
+    hapticMenuOpen.setValue(false, true);
+  }
 
   @Override
   public void onPreferVideoModeChanged (boolean preferVideoMode) {
@@ -128,7 +197,12 @@ public class VoiceVideoButtonView extends View implements FactorAnimator.Target,
     final int cy = viewHeight / 2;
     final float videoFactor = inVideoMode.getFloatValue();
     final float searchFactor = inSearchMode.getFloatValue();
+    final float hapticFactor = hapticMenuOpen.getFloatValue();
 
+    if (hapticFactor > 0f) {
+      float rad = Screen.dp(22.5f) * hapticFactor;
+      c.drawCircle(cx, cy, rad, Paints.fillingPaint(ColorUtils.alphaColor(0.05f * hapticFactor, Theme.getColor(ColorId.text))));
+    }
     final Paint paint = hasTouchControls ? Paints.getIconGrayPorterDuffPaint() : getIconPaint();
     final int savedAlpha = paint.getAlpha();
     final float generalFactor = (1f - sendFactor);
@@ -224,7 +298,12 @@ public class VoiceVideoButtonView extends View implements FactorAnimator.Target,
     if (this.inLongTap != inLongTap) {
       boolean success;
       if (inLongTap) {
-        success = UI.getContext(getContext()).getRecordAudioVideoController().startRecording(this, false);
+        if (inVideoMode.getValue() && MoexConfig.instance().getRoundVideos() == MoexConfig.START_WITH_ASK) {
+          hapticMenuHelper.openMenu(this);
+          success = true;
+        } else {
+          success = UI.getContext(getContext()).getRecordAudioVideoController().startRecording(this, false, MoexConfig.instance().getRoundVideos() == MoexConfig.START_WITH_FRONT);
+        }
       } else {
         if (!cancelLongTap) {
           UI.getContext(getContext()).getRecordAudioVideoController().finishRecording(byCancel);
@@ -233,7 +312,7 @@ public class VoiceVideoButtonView extends View implements FactorAnimator.Target,
       }
       if (success) {
         this.inLongTap = inLongTap;
-      } else if (inLongTap) {
+      } else {
         setIsDown(false);
       }
     }
@@ -263,12 +342,13 @@ public class VoiceVideoButtonView extends View implements FactorAnimator.Target,
         trackDownY = e.getY();
         draggingLeft = draggingUp = false;
         cancelLongTap = false;
+        hapticMenuHandled = false;
 
         setIsDown(true);
         break;
       }
       case MotionEvent.ACTION_MOVE: {
-        if (isDown) {
+        if (isDown && !hapticMenuHandled) {
           float x = e.getX();
           float y = e.getY();
           if (inLongTap && !(cancelLongTap || (cancelLongTap = !UI.getContext(getContext()).getRecordAudioVideoController().isOpen()))) {
@@ -302,7 +382,9 @@ public class VoiceVideoButtonView extends View implements FactorAnimator.Target,
       }
       case MotionEvent.ACTION_UP: {
         if (isDown) {
-          if (inLongTap) {
+          if (hapticMenuHandled) {
+            hapticMenuHandled = false;
+          } else if (inLongTap) {
             setInLongTap(false, false);
           } else {
             performTap();
@@ -313,7 +395,10 @@ public class VoiceVideoButtonView extends View implements FactorAnimator.Target,
       }
       case MotionEvent.ACTION_CANCEL: {
         if (isDown) {
-          setInLongTap(false, true);
+          if (!hapticMenuHandled) {
+            setInLongTap(false, true);
+          }
+          hapticMenuHandled = false;
           setIsDown(false);
         }
         break;

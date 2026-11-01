@@ -168,6 +168,7 @@ import tgx.td.MessageId;
 import tgx.td.Td;
 import tgx.td.TdExt;
 import tgx.td.data.MessageWithProperties;
+import moe.kirao.mgx.MoexConfig;
 
 public abstract class TGMessage implements InvalidateContentProvider, TdlibDelegate, FactorAnimator.Target, Comparable<TGMessage>, Counter.Callback, TGAvatars.Callback, TranslationsManager.Translatable, TdlibForumTopicManager.Observer {
   private static final int MAXIMUM_CHANNEL_MERGE_TIME_DIFF = 150;
@@ -319,6 +320,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
   public static final int REACTIONS_DRAW_MODE_BUBBLE = 0;
   public static final int REACTIONS_DRAW_MODE_FLAT = 1;
   public static final int REACTIONS_DRAW_MODE_ONLY_ICON = 2;
+  public static final int REACTIONS_DRAW_MODE_NONE = 3;
 
   private final TranslationsManager mTranslationsManager;
 
@@ -3991,6 +3993,9 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
     final boolean isSending = isSending();
     final boolean isFailed = isFailed();
 
+    final boolean isMsgSticker = msg.content.getConstructor() == TdApi.MessageSticker.CONSTRUCTOR;
+    final boolean hideStickerTimestamp = MoexConfig.hideStickerTimestamp;
+
     boolean reverseOrder;
 
     if ((reverseOrder = Config.MOVE_BUBBLE_TIME_RTL_TO_LEFT && moveBubbleTimePartToLeft())) {
@@ -4003,12 +4008,13 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
       startY -= commentButton.getAnimatedHeight(0, commentButton.getVisibility());
     }
 
-    if (backgroundColor != 0) {
-      startY -= Screen.dp(4f);
+    if (backgroundColor != 0 && !(isMsgSticker && hideStickerTimestamp)) {
+      startY -= Screen.dp(isMsgSticker ? 6f : 4f);
       RectF rectF = Paints.getRectF();
       int padding = Screen.dp(6f);
+      int rad = Screen.dp(MoexConfig.roundedStickers ? Theme.getBubbleMergeRadius() - 2 : 12f);
       rectF.set(startX - padding, startY, startX + innerWidth + padding, startY + Screen.dp(21f));
-      c.drawRoundRect(rectF, Screen.dp(12f), Screen.dp(12f), Paints.fillingPaint(backgroundColor));
+      c.drawRoundRect(rectF, rad, rad, Paints.fillingPaint(backgroundColor));
       startY -= Screen.dp(1f);
     }
 
@@ -4030,19 +4036,23 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
         }
         Drawables.draw(c, Icons.getClockIcon(iconColorId), startX - Screen.dp(Icons.CLOCK_SHIFT_X), startY + Screen.dp(5f) - Screen.dp(Icons.CLOCK_SHIFT_Y), iconPaint);
         startX += clockWidth;
-      } else {
+      } else if (!(isMsgSticker && hideStickerTimestamp)) {
         viewCounter.draw(c, startX, counterY, Gravity.LEFT, 1f, view, iconColorId);
         startX += viewCounter.getScaledWidth(Screen.dp(COUNTER_ICON_MARGIN + COUNTER_ADD_MARGIN));
       }
-      shareCounter.draw(c, startX, counterY, Gravity.LEFT, 1f, view, iconColorId);
-      startX += shareCounter.getScaledWidth(Screen.dp(COUNTER_ICON_MARGIN + COUNTER_ADD_MARGIN));
+      if (!(isMsgSticker && hideStickerTimestamp)) {
+        shareCounter.draw(c, startX, counterY, Gravity.LEFT, 1f, view, iconColorId);
+        startX += shareCounter.getScaledWidth(Screen.dp(COUNTER_ICON_MARGIN + COUNTER_ADD_MARGIN));
+      }
     }
-    if (replyCounter.getVisibility() > 0f) {
+    if (replyCounter.getVisibility() > 0f && !(isMsgSticker && hideStickerTimestamp)) {
       replyCounter.draw(c, startX, counterY, Gravity.LEFT, 1f, view, iconColorId);
       startX += replyCounter.getScaledWidth(Screen.dp(COUNTER_ICON_MARGIN + COUNTER_ADD_MARGIN));
     }
-    isPinned.draw(c, startX, counterY, Gravity.LEFT, 1f, view, iconColorId);
-    startX += isPinned.getScaledWidth(Screen.dp(COUNTER_ICON_MARGIN));
+    if (!(isMsgSticker && hideStickerTimestamp)) {
+      isPinned.draw(c, startX, counterY, Gravity.LEFT, 1f, view, iconColorId);
+      startX += isPinned.getScaledWidth(Screen.dp(COUNTER_ICON_MARGIN));
+    }
 
     if (shouldShowMessageRestrictedWarning()) {
       if (isRestrictedByTelegram()) {
@@ -4069,21 +4079,21 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
       startX += isTranslatedCounter.getScaledWidth(Screen.dp(COUNTER_ICON_MARGIN + COUNTER_ADD_MARGIN));
     }
 
-    if (time != null) {
+    if (time != null && !(isMsgSticker && hideStickerTimestamp)) {
       c.drawText(time, startX, startY + Screen.dp(15.5f), Paints.colorPaint(mTimeBubble(), textColor));
       startX += pTimeWidth;
     }
 
-    if (isOutgoingBubble() || (isSending && getViewCountMode() != VIEW_COUNT_MAIN)) {
+    if (!(isMsgSticker && hideStickerTimestamp) && (isOutgoingBubble() || (isSending && getViewCountMode() != VIEW_COUNT_MAIN))) {
       int top;
 
-      startX += Screen.dp(3.5f);
+      startX += Screen.dp(3f);
 
       if (isSending) {
         top = startY + Screen.dp(5f);
         startX += Screen.dp(1f);
       } else {
-        top = startY + Screen.dp(4.5f);
+        top = startY + Screen.dp(5f);
       }
 
       if (isFailed) {
@@ -5177,7 +5187,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
   }
 
   public boolean canBeReacted () {
-    return !isSponsoredMessage() && !isEventLog() && !Td.isEmpty(messageAvailableReactions) && (tdlib.hasPremium() || Td.hasNonPremiumReactions(messageAvailableReactions));
+    return !isSponsoredMessage() && !isEventLog() && !Td.isEmpty(messageAvailableReactions) && !MoexConfig.disableReactions && (tdlib.hasPremium() || Td.hasNonPremiumReactions(messageAvailableReactions));
   }
 
   public boolean canBeSaved () {
@@ -5247,7 +5257,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
       }
       result = true;
     }
-    if (containsUnreadReactions() && !BitwiseUtils.hasFlag(flags, FLAG_IGNORE_REACTIONS_VIEW)) {
+    if (containsUnreadReactions() && !BitwiseUtils.hasFlag(flags, FLAG_IGNORE_REACTIONS_VIEW) && !MoexConfig.disableReactions) {
       flags |= FLAG_IGNORE_REACTIONS_VIEW;
 
       highlightUnreadReactions();
@@ -8017,8 +8027,8 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
 
   // Icons
 
-  private static Drawable iQuickTranslate, iQuickStopTranslate, iQuickReply, iQuickShare, iBadge;
-  private static String shareText, replyText, translateText, translateStopText;
+  private static Drawable iQuickTranslate, iQuickStopTranslate, iQuickReply, iQuickEdit, iQuickShare, iQuickFeatured, iBadge;
+  private static String editText, shareText, featuredText, replyText, translateText, translateStopText;
   private static boolean initialized;
 
   private static void initResources () {
@@ -8026,6 +8036,8 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
     iBadge = Drawables.get(res, R.drawable.baseline_keyboard_arrow_down_20);
     iQuickReply = Drawables.get(res, R.drawable.baseline_reply_24);
     iQuickShare = Drawables.get(res, R.drawable.baseline_forward_24);
+    iQuickEdit = Drawables.get(res, R.drawable.baseline_edit_24);
+    iQuickFeatured = Drawables.get(res, R.drawable.baseline_bookmark_24);
     iQuickTranslate = Drawables.get(res, R.drawable.baseline_translate_24);
     iQuickStopTranslate = Drawables.get(res, R.drawable.baseline_translate_off_24);
     initBubbleResources();
@@ -8034,6 +8046,8 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
   private static void initTexts () {
     if (mQuickText != null) {
       shareText = Lang.getString(R.string.SwipeShare);
+      editText = Lang.getString(R.string.edit);
+      featuredText = Lang.getString(R.string.SavedMessages);
       replyText = Lang.getString(R.string.SwipeReply);
       translateText = Lang.getString(R.string.Translate);
       translateStopText = Lang.getString(R.string.TranslateOff);
@@ -8045,7 +8059,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
   }
 
   private static boolean isStaticText (int res) {
-    return res == R.string.SwipeShare || res == R.string.SwipeReply;
+    return res == R.string.SwipeShare || res == R.string.edit || res == R.string.SavedMessages || res == R.string.SwipeReply;
   }
 
   public static void processLanguageEvent (@Lang.EventType int eventType, int arg1) {
@@ -8592,7 +8606,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
   }
 
   public final boolean useReactionBubbles () {
-    return manager().useReactionBubbles() || forceReactionBubbles();
+    return (manager().useReactionBubbles() || forceReactionBubbles()) && !MoexConfig.disableReactions;
   }
 
   protected final boolean forceReactionBubbles () {
@@ -8915,6 +8929,8 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
 
     final boolean canReply = Settings.instance().needChatQuickReply() && messagesController().canWriteMessagesOrWaitingForReply() && !messagesController().needTabs() && canReplyTo();
     final boolean canShare = Settings.instance().needChatQuickShare() && !messagesController().isSecretChat() && canBeForwarded();
+    final boolean canFeatured = MoexConfig.quickFeatured && !messagesController().isSecretChat() && canBeForwarded();
+    final boolean canEdit = MoexConfig.quickEdit && canEditText();
 
     leftActions.clear();
     rightActions.clear();
@@ -8976,11 +8992,21 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
       }
     }
 
-
-
     if (canShare) {
       leftActions.add(new SwipeQuickAction(shareText, iQuickShare, () -> {
         messagesController().shareMessages(getAllMessages(), false);
+      }, true, false));
+    }
+
+    if (canEdit) {
+      rightActions.add(new SwipeQuickAction(editText, iQuickEdit, () -> {
+        getMessageWithProperties(msg -> messagesController().editMessage(msg));
+      }, true, false));
+    }
+
+    if (canFeatured) {
+      leftActions.add(new SwipeQuickAction(featuredText, iQuickFeatured, () -> {
+        tdlib.forwardMessage(tdlib.selfChatId(), null, getChatId(), getId(), null);
       }, true, false));
     }
   }
@@ -9050,6 +9076,10 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
   }
 
   private int getReactionsDrawMode () {
+    if (MoexConfig.disableReactions) {
+      return REACTIONS_DRAW_MODE_NONE;
+    }
+
     if (useReactionBubbles()) {
       return REACTIONS_DRAW_MODE_BUBBLE;
     }
@@ -9320,7 +9350,10 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
           nextSetReactionAnimation.fullscreenEmojiFinished = true;
         }
 
-        context().openReactionPreview(tdlib, null, reaction, effectAnimation, startX, startY, Screen.dp(30), -1, true);
+        context().openReactionPreview(tdlib, null, reaction, effectAnimation, startX, startY, Screen.dp(30), -1, true, () -> {
+          finishAnimation.cancel();
+          finishRunnable.run();
+        });
         tdlib().ui().postDelayed(finishAnimation, 7500l);
       });
     }

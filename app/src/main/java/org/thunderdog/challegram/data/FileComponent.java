@@ -847,6 +847,9 @@ public class FileComponent extends BaseComponent implements FileProgressComponen
     if (needProgress()) {
       setSubtitle(buildSubtitle());
     }
+    if (hasPreview && fullPreview == null && createFullPreview() != null && state == TdlibFilesManager.STATE_DOWNLOADED_OR_UPLOADED) {
+      context.invalidateContentReceiver(message != null ? message.id : context.getId(), -1);
+    }
   }
 
   @Override

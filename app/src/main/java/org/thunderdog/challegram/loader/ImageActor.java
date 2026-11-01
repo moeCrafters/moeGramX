@@ -17,7 +17,6 @@ package org.thunderdog.challegram.loader;
 import android.graphics.Bitmap;
 import android.os.CancellationSignal;
 
-import androidx.media3.extractor.metadata.id3.ApicFrame;
 import androidx.palette.graphics.Palette;
 
 import org.drinkless.tdlib.TdApi;
@@ -155,16 +154,16 @@ public class ImageActor implements ImageReader.Listener, AudioController.ApicLis
   // Apic loader
 
   private void requestApic (ImageApicFile file) {
-    ApicFrame apicFrame = TdlibManager.instance().audio().requestApic(file.tdlib(), file.getMessage(), this);
-    if (apicFrame != null) {
-      onApicLoaded(file.tdlib(), file.getMessage(), apicFrame);
+    byte[] pictureData = TdlibManager.instance().audio().requestApic(file.tdlib(), file.getMessage(), this);
+    if (pictureData != null) {
+      onApicLoaded(file.tdlib(), file.getMessage(), pictureData);
     }
   }
 
   @Override
-  public void onApicLoaded (Tdlib tdlib, TdApi.Message message, ApicFrame apicFrame) {
+  public void onApicLoaded (Tdlib tdlib, TdApi.Message message, byte[] pictureData) {
     if (!isCancelled) {
-      ((ImageApicFile) file).setApicFrame(apicFrame);
+      ((ImageApicFile) file).setPictureData(pictureData);
       ImageReader.instance().readImage(this, file, null, this);
     }
   }

@@ -37,6 +37,7 @@ import androidx.media3.common.TrackGroup;
 import androidx.media3.common.Tracks;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.extractor.metadata.flac.PictureFrame;
 import androidx.media3.extractor.metadata.id3.ApicFrame;
 
 import org.drinkless.tdlib.TdApi;
@@ -62,10 +63,16 @@ import me.vkryl.android.AnimatorUtils;
 import me.vkryl.android.animator.FactorAnimator;
 import me.vkryl.core.ArrayUtils;
 import me.vkryl.core.MathUtils;
+import moe.kirao.mgx.MoexConfig;
+import moe.kirao.mgx.utils.AudioFocusHelper;
 import tgx.td.Td;
 
 public class AudioController extends BasePlaybackController implements TGAudio.PlayListener, TGPlayerController.TrackListChangeListener, FactorAnimator.Target {
   private final TdlibManager context;
+
+  private final AudioFocusHelper voiceFocus = new AudioFocusHelper(
+    MoexConfig.AUTO_PAUSE_MEDIA_VOICE,
+    () -> TdlibManager.instance().player().playPauseCurrent(false));
 
   public AudioController (TdlibManager context, TGPlayerController controller) {
     this.context = context;
@@ -193,6 +200,7 @@ public class AudioController extends BasePlaybackController implements TGAudio.P
 
   @Override
   protected void finishPlayback (Tdlib tdlib, TdApi.Message message, boolean byUserRequest) {
+    voiceFocus.abandon();
     switch (playbackMode) {
       case PLAYBACK_MODE_LEGACY: {
         Media.instance().stopAudio();
@@ -257,6 +265,13 @@ public class AudioController extends BasePlaybackController implements TGAudio.P
 
   @Override
   protected void playPause (boolean isPlaying) {
+    if (isPlaying) {
+      if (isPlayingVoice()) {
+        voiceFocus.request();
+      }
+    } else {
+      voiceFocus.abandon();
+    }
     switch (playbackMode) {
       case PLAYBACK_MODE_LEGACY: {
         if (isPlaying) {
@@ -279,6 +294,11 @@ public class AudioController extends BasePlaybackController implements TGAudio.P
   protected void startPlayback (Tdlib tdlib, TdApi.Message message, boolean byUserRequest, boolean hadObject, Tdlib previousTdlib, int previousFileId) {
     if (playbackMode == PLAYBACK_MODE_UNSET) {
       setPlaybackMode(determineBestPlaybackMode(Td.isVoiceNote(message.content)), Td.isAudio(message.content));
+    }
+    if (Td.isVoiceNote(message.content)) {
+      voiceFocus.request();
+    } else {
+      voiceFocus.abandon();
     }
     Log.i(Log.TAG_PLAYER, "startPlayback mode:%d byUserRequest:%b, hadObject:%b, previousFileId:%d", playbackMode, byUserRequest, hadObject, previousFileId);
     switch (playbackMode) {
@@ -732,18 +752,19 @@ public class AudioController extends BasePlaybackController implements TGAudio.P
     Log.d(Log.TAG_PLAYER, "[state] onTimeLineChanged reason:%d", reason);
   }
 
-  private static ApicFrame findApic (@NonNull Tracks tracks) {
-    List<Tracks.Group> groups = tracks.getGroups();
-    for (Tracks.Group group : groups) {
+  private static byte[] findPicture (@NonNull Tracks tracks) {
+    for (Tracks.Group group : tracks.getGroups()) {
       TrackGroup trackGroup = group.getMediaTrackGroup();
-      for (int j = 0; j < trackGroup.length; j++) {
-        Metadata trackMetadata = trackGroup.getFormat(j).metadata;
-        if (trackMetadata != null) {
-          int metadataCount = trackMetadata.length();
-          for (int z = 0; z < metadataCount; z++) {
-            Metadata.Entry metadata = trackMetadata.get(z);
-            if (metadata instanceof ApicFrame) {
-              return (ApicFrame) metadata;
+      for (int i = 0; i < trackGroup.length; i++) {
+        Metadata metadata = trackGroup.getFormat(i).metadata;
+        if (metadata != null) {
+          for (int j = 0; j < metadata.length(); j++) {
+            Metadata.Entry entry = metadata.get(j);
+            if (entry instanceof ApicFrame) { // ID3 (mp3, aac)
+              return ((ApicFrame) entry).pictureData;
+            }
+            if (entry instanceof PictureFrame) { // FLAC, Ogg
+              return ((PictureFrame) entry).pictureData;
             }
           }
         }
@@ -755,28 +776,17 @@ public class AudioController extends BasePlaybackController implements TGAudio.P
   @Override
   public void onTracksChanged (@NonNull Tracks trackGroups) {
     Log.d(Log.TAG_PLAYER, "[state] onTracksChanged");
-    if (playbackMode != PLAYBACK_MODE_EXOPLAYER_LIST || playIndex == -1) {
-      return;
-    }
-    ApicFrame frame = findApic(trackGroups);
-    if (frame != null) {
-      checkApicDelayed();
-    }
-  }
-
-  private void checkApicDelayed () {
-    UI.post(() -> {
-      if (playIndex != -1 && playIndex >= 0 && playIndex < playList.size()) {
-        TdApi.Message track = playList.get(playIndex);
-        if (!TGPlayerController.compareTracks(currentApicMessage, track)) {
-          ApicFrame frame = findApic(exoPlayer.getCurrentTracks());
-          if (frame != null) {
-            dispatchApic(tdlib, track, frame);
-          }
-        }
-      }
-    }, 50);
-
+    if (playbackMode != PLAYBACK_MODE_EXOPLAYER_LIST
+      || exoPlayer == null || playList == null) return;
+    int windowIndex = exoPlayer.getCurrentMediaItemIndex();
+    if (windowIndex != -1 && inReverseMode())
+      windowIndex = reversePosition(windowIndex, playList.size(), true);
+    if (windowIndex < 0 || windowIndex >= playList.size()) return;
+    TdApi.Message track = playList.get(windowIndex);
+    if (TGPlayerController.compareTracks(currentApicMessage, track)) return;
+    byte[] albumArt = findPicture(trackGroups);
+    if (albumArt != null)
+      dispatchApic(tdlib, track, albumArt);
   }
 
   @Override
@@ -972,10 +982,10 @@ public class AudioController extends BasePlaybackController implements TGAudio.P
 
   private Tdlib currentApicTdlib;
   private TdApi.Message currentApicMessage;
-  private ApicFrame currentApic;
+  private byte[] currentApic;
 
   public interface ApicListener {
-    void onApicLoaded (Tdlib tdlib, TdApi.Message message, ApicFrame apicFrame);
+    void onApicLoaded (Tdlib tdlib, TdApi.Message message, byte[] pictureData);
   }
 
   private static class ApicTarget {
@@ -990,9 +1000,9 @@ public class AudioController extends BasePlaybackController implements TGAudio.P
       this.listeners.add(initialListener);
     }
 
-    public void dispatchAvailable (ApicFrame frame) {
+    public void dispatchAvailable (byte[] pictureData) {
       for (ApicListener listener : listeners) {
-        listener.onApicLoaded(tdlib, message, frame);
+        listener.onApicLoaded(tdlib, message, pictureData);
       }
     }
   }
@@ -1005,19 +1015,19 @@ public class AudioController extends BasePlaybackController implements TGAudio.P
     currentApicMessage = null;
   }
 
-  private void dispatchApic (Tdlib tdlib, TdApi.Message message, ApicFrame apicFrame) {
+  private void dispatchApic (Tdlib tdlib, TdApi.Message message, byte[] pictureData) {
     synchronized (this) {
       if (TGPlayerController.compareTracks(this.currentApicMessage, message) && currentApic != null) {
         return;
       }
       currentApicTdlib = tdlib;
       currentApicMessage = message;
-      currentApic = apicFrame;
+      currentApic = pictureData;
       if (apicTargets != null) {
         int i = 0;
         for (ApicTarget target : apicTargets) {
           if (target.tdlib == tdlib && TGPlayerController.compareTracks(target.message, message)) {
-            target.dispatchAvailable(apicFrame);
+            target.dispatchAvailable(pictureData);
             target.listeners.clear();
             apicTargets.remove(i);
             break;
@@ -1045,10 +1055,9 @@ public class AudioController extends BasePlaybackController implements TGAudio.P
     }
   }
 
-  public ApicFrame requestApic (Tdlib tdlib, TdApi.Message message, ApicListener listener) {
+  public byte[] requestApic (Tdlib tdlib, TdApi.Message message, ApicListener listener) {
     synchronized (this) {
       if (TGPlayerController.compareTracks(currentApicTdlib, tdlib, currentApicMessage, message)) {
-        listener.onApicLoaded(tdlib, message, currentApic);
         return currentApic;
       }
       if (apicTargets != null) {

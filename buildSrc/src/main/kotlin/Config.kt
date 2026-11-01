@@ -311,7 +311,7 @@ object Telegram {
   const val RESOURCES_CHANNEL = "Y2xvdWRfdGd4X2FuZHJvaWRfcmVzb3Vy"
 
   // Channel where to look up for new apks
-  const val UPDATES_CHANNEL = "tgx_log"
+  const val UPDATES_CHANNEL = "moex_log"
 
   // Language pack on server. Do not change
   const val LANGUAGE_PACK = "android_x"

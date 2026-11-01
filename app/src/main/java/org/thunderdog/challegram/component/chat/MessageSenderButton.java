@@ -95,7 +95,7 @@ public class MessageSenderButton extends FrameLayout implements ReplaceAnimator.
     float cx = getButtonCenterX();
     float cy = getButtonCenterY();
     float alpha = Math.min((1f - sendFactor), quickSelected.getFloatValue());
-    float r = (int) (Screen.dp(33) * alpha);
+    float r = (int) (Screen.dp(22.5f) * alpha); // 33f
 
     c.drawCircle(cx, cy, r, Paints.fillingPaint(ColorUtils.alphaColor(0.05f * alpha, Theme.getColor(ColorId.text))));
     super.onDraw(c);

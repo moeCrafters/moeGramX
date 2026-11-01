@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="MoexSettings">moeGramX seçenekleri</string>
+  <string name="GeneralMoexSettings">Genel</string>
+  <string name="InterfaceMoexSettings">Arayüz</string>
+  <string name="ChatsMoexSettings">Sohbetler</string>
+  <string name="MoexLinks">Bağlantılar</string>
+  <string name="MoexChatText">Sohbet</string>
+  <string name="MoexChannelText">Kanal</string>
+  <string name="MoexSourceText">Kaynak</string>
+  <string name="MoexCategories">Kategoriler</string>
+  <string name="MoexHideButtons">Mesaj paneli</string>
+  <string name="DisableCommandsButton">Komutlar</string>
+  <string name="DisableCameraButton">Kamera</string>
+  <string name="DisableRecordButton">Medya</string>
+  <string name="MoexChatsSettings">Sohbet Seçenekleri</string>
+  <string name="MoexStickersCount">Çıkartmalar</string>
+  <string name="DisableStickerTimestamp">Çıkartmalarda zamanı gizle</string>
+  <string name="RoundedStickers">Yuvarlak çıkartmalar</string>
+  <string name="DrawerOptions">Drawer seçenekleri</string>
+  <string name="hidePhoneNumber">Telefon numarasını gizle</string>
+  <string name="EnableFeatures">Hata ayıklama özelliklerine izin ver</string>
+  <string name="FeaturesButtonInfo">Test sunucularına geçme ya da özellik açma/kapatma tuşları gibi deneysel seçenekleri göster</string>
+  <string name="ExperimentalOptions">Deneysel Seçenekler</string>
+  <string name="PhoneHidden">Telefon gizlendi</string>
+  <string name="showIdProfile">Profilde ID Göster</string>
+  <string name="DisableSendAsButton">Kanallar</string>
+  <string name="MoexAbout">Hakkında</string>
+  <string name="MoexAboutText" formatted="true">**moeGramX** — resmi kaynaklara ve TDlib\'e dayalı sevimli, zengin özelliklere sahip biraz deneysel bir istemcidir. Bazı özellikler önermekten, sorunları bildirmekten veya Tartışma grubumuzda sohbet etmekten çekinmeyin!</string>
+  <string name="HideCameraButtonInfo">Kamera tuşunu gizleme özelliği aynı zamanda ekleme menüsünün altına bir kamera tuşu ekler</string>
+  <string name="IncreaseRecents">Son kullanılan çıkartmalar sayısını arttır</string>
+  <string name="hideMessagesBadge">Okunmamış mesajlar etiketini gizle</string>
+  <string name="MoexCuteSettings">Bir küçük moe uzun bir yol kateder ~</string>
+  <string name="changeSizeLimit">Fotoğraf çözünürlüğü</string>
+  <string name="changeSizeLimitInfo">Gönderilen fotoğrafların çözünürlüğünü değiştir</string>
+  <string name="SizeLimitDesc">Bu özellik düzgün çalışmaz ve biraz ufak arayüz sorununa yol açabilir. Eğer fotoğraf yollarken görsel bir soruna rastladıysanız **1280px** değerine getirin ve depolama ayarlarından önbelleği temizleyin.</string>
+  <string name="CopiedPhoto">Fotoğraf kopyalama panosuna kopyalandı</string>
+  <string name="CopyPhoto">Fotoğrafı kopyala</string>
+  <string name="Repeat">Tekrarla</string>
+  <string name="changeHeaderText">Başlık metni</string>
+  <string name="RememberOptions">Gönderme seçeneklerini hatırla</string>
+  <string name="RememberOptionsInfo">Son seçilen gönderme özelliklerini kaydet ve varsayılan olarak kullan</string>
+  <string name="SquareAvatar">Kare profil resmi kenarları</string>
+  <string name="MoexBlurDrawer">Profil resmini bulanıklaştır</string>
+  <string name="MoexChatsHeader">Sohbet listesi</string>
+  <string name="TypingInstead">Çıkartma seçiyor durumunu gönder</string>
+  <string name="TypingInsteadInfo" formatted="true">**Çıkartma seçiyor** durumu göndermeyi geri getirin</string>
+  <string name="DisableReactions">Tepkileri gizle</string>
+  <string name="HideMessagePanelButtons">Mesaj paneli tuşlarını gizle</string>
+  <string name="ProfileOptions">Profil</string>
+  <string name="ActivityOptions">Etkinlik</string>
+  <string name="HideBottomBar">Alt barı gizle</string>
+</resources>

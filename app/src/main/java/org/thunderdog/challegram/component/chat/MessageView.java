@@ -646,7 +646,7 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
         strings.append(R.string.Translate);
         icons.append(R.drawable.baseline_translate_24);
       }
-      
+
       ids.append(R.id.btn_messageSponsorInfo);
       strings.append(R.string.SponsoredInfoMenu);
       icons.append(R.drawable.baseline_info_24);
@@ -950,10 +950,6 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
           icons.append(R.drawable.deproko_baseline_gif_24);
         }
         switch (baseDownloadedFile.getFileType().getConstructor()) {
-          case TdApi.FileTypeVoiceNote.CONSTRUCTOR:
-          case TdApi.FileTypeVideoNote.CONSTRUCTOR: {
-            break;
-          }
           case TdApi.FileTypeAnimation.CONSTRUCTOR:
           case TdApi.FileTypeVideo.CONSTRUCTOR:
           case TdApi.FileTypePhoto.CONSTRUCTOR: {
@@ -996,6 +992,18 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
             }
 
             if (msg.canBeSaved()) {
+              String mime = baseDownloadedFile.getMimeType();
+              if (!StringUtils.isEmpty(mime) && (mime.startsWith("image/") || mime.startsWith("video/"))) {
+                ids.append(R.id.btn_saveDocument);
+                if (allMessages.length == 1) {
+                  strings.append(R.string.SaveToGallery);
+                } else {
+                  strings.append(Lang.plural(R.string.SaveXToGallery, downloadedFiles.size()));
+                }
+                icons.append(R.drawable.baseline_image_24);
+              }
+              if (baseDownloadedFile.getFileType() instanceof TdApi.FileTypeSticker
+                && !mime.equals("application/x-tgsticker")) break;
               ids.append(R.id.btn_saveFile);
               if (allMessages.length == 1) {
                 strings.append(R.string.SaveToDownloads);
@@ -1007,6 +1015,11 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
             break;
           }
         }
+      }
+      if (allMessages.length == 1 && Td.isAudio(singleMessage.content)) {
+        ids.append(R.id.btn_pinAudioProfile);
+        strings.append(R.string.AddToProfile);
+        icons.append(R.drawable.baseline_queue_music_24);
       }
       if (allMessages.length == 1 && playListAddMode != TGPlayerController.ADD_MODE_NONE) {
         ids.append(R.id.btn_addToPlaylist);
@@ -1064,6 +1077,29 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
           moreOptions++;
         }
       }
+    }
+
+    int constructor = msg.getMessage().content.getConstructor();
+    boolean isPhoto = constructor == TdApi.MessagePhoto.CONSTRUCTOR;
+    if (msg.canBeSaved() && (isPhoto || constructor == TdApi.MessageDocument.CONSTRUCTOR) && TD.isFileLoaded(msg.getMessage())) {
+      TD.DownloadedFile downloadedFile = TD.getDownloadedFile(msg.tdlib(), msg.getMessage());
+      if (isPhoto || (downloadedFile != null && downloadedFile.getMimeType().startsWith("image/"))) {
+        if (isMore) {
+          ids.append(R.id.btn_copyPhoto);
+          strings.append(R.string.CopyPhoto);
+          icons.append(R.drawable.baseline_content_copy_24);
+        } else {
+          moreOptions++;
+        }
+      }
+    }
+
+    if (isMore) {
+      ids.append(R.id.btn_msgDetails);
+      strings.append(R.string.MsgDetails);
+      icons.append(R.drawable.baseline_info_24);
+    } else {
+      moreOptions++;
     }
 
     if (msg.canBeReported() && !msg.isFakeMessage() && !msg.isSponsoredMessage()) {
@@ -1165,6 +1201,16 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
           strings.append(Lang.getString(R.string.ViewMessagesFromUser, msg.getSender().getNameShort()));
         }
         icons.append(icon);
+      } else {
+        moreOptions++;
+      }
+    }
+
+    if (m.canWriteMessages() && !m.shouldDisallowScreenshots()) {
+      if (isMore) {
+        ids.append(R.id.btn_msgRepeat);
+        strings.append(R.string.Repeat);
+        icons.append(R.drawable.baseline_repeat_24);
       } else {
         moreOptions++;
       }

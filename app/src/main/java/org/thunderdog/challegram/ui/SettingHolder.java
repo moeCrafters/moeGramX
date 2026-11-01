@@ -251,6 +251,9 @@ public class SettingHolder extends RecyclerView.ViewHolder {
       case ListItem.TYPE_USER_SMALL: {
         return Screen.dp(63);
       }
+      case ListItem.TYPE_CHAT_PROFILE: {
+        return Screen.dp(85f); // topMargin(36) + subtitle(17) + gap(4) + members(16) + bottomMargin(12)
+      }
       case ListItem.TYPE_CHAT_BETTER:
       case ListItem.TYPE_USER: {
         return Screen.dp(72f);
@@ -2491,6 +2494,71 @@ public class SettingHolder extends RecyclerView.ViewHolder {
         chartLayout.setPadding(chartLayout.getPaddingLeft(), Screen.dp(16f), chartLayout.getPaddingRight(), chartLayout.getPaddingBottom());
         chartLayout.initWithType(tdlib, type, adapter, themeProvider);
         return new SettingHolder(chartLayout);
+      }
+      case ListItem.TYPE_CHAT_PROFILE: {
+        int textLeftMargin = Screen.dp(72f);
+        int textRightMargin = Screen.dp(16f);
+
+        FrameLayoutFix wrapView = new FrameLayoutFix(context);
+        wrapView.setClipChildren(false);
+        wrapView.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        SmallChatView chatView = new SmallChatView(context, tdlib);
+        chatView.setId(R.id.chat);
+        chatView.setPadding(0, 0, Screen.dp(60), 0);
+        chatView.setOnClickListener(onClickListener);
+        chatView.setOnLongClickListener(onLongClickListener);
+        RippleSupport.setSimpleWhiteBackground(chatView, themeProvider);
+        chatView.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        wrapView.addView(chatView);
+
+        TextView timeView = new NoScrollTextView(context);
+        timeView.setId(R.id.session_time);
+        timeView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12f);
+        timeView.setTextColor(Theme.textDecentColor());
+        if (themeProvider != null) {
+          themeProvider.addThemeTextDecentColorListener(timeView);
+        }
+        FrameLayout.LayoutParams timeParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        timeParams.gravity = Gravity.BOTTOM | Gravity.END;
+        timeParams.bottomMargin = Screen.dp(12f);
+        timeParams.rightMargin = textRightMargin;
+        timeView.setLayoutParams(timeParams);
+        wrapView.addView(timeView);
+
+        LinearLayout textColumn = new LinearLayout(context);
+        textColumn.setOrientation(LinearLayout.VERTICAL);
+        textColumn.setClipChildren(false);
+        FrameLayout.LayoutParams columnParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        columnParams.topMargin = Screen.dp(36f);
+        columnParams.bottomMargin = Screen.dp(12f);
+        columnParams.leftMargin = textLeftMargin;
+        columnParams.rightMargin = textRightMargin;
+        textColumn.setLayoutParams(columnParams);
+
+        CustomTextView subtitleView = new CustomTextView(context, tdlib);
+        subtitleView.setId(R.id.message);
+        subtitleView.setTextSize(14f);
+        subtitleView.setTextColorId(ColorId.textLight);
+        subtitleView.setMaxLineCount(2);
+        textColumn.addView(subtitleView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        TextView membersView = new NoScrollTextView(context);
+        membersView.setId(R.id.btn_members);
+        membersView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13f);
+        membersView.setTextColor(Theme.textDecentColor());
+        if (themeProvider != null) {
+          themeProvider.addThemeTextDecentColorListener(membersView);
+        }
+        membersView.setTypeface(Fonts.getRobotoRegular());
+        LinearLayout.LayoutParams membersParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        membersParams.topMargin = Screen.dp(4f);
+        membersView.setLayoutParams(membersParams);
+        textColumn.addView(membersView);
+
+        wrapView.addView(textColumn);
+
+        return new SettingHolder(wrapView);
       }
       case ListItem.TYPE_CHAT_EMPTY: {
         final EmptyTextView view = new EmptyTextView(context) {

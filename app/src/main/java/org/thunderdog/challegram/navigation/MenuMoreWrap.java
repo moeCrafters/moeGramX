@@ -519,7 +519,7 @@ public class MenuMoreWrap extends MenuMoreWrapAbstract implements Animated {
   protected void onDraw (Canvas canvas) {
     if (bubbleTailX > 0) {
       float cx = bubbleTailX;
-      float cy = getMeasuredHeight() - Screen.dp(PADDING);
+      float cy = shouldPivotBottom ? getMeasuredHeight() - Screen.dp(PADDING) : Screen.dp(PADDING);
       canvas.save();
       canvas.rotate(45f, cx, cy);
       canvas.drawRect(

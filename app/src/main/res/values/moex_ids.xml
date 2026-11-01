@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <item name="btn_GeneralMoexSettings" type="id" />
+  <item name="btn_InterfaceMoexSettings" type="id" />
+  <item name="btn_ChatsMoexSettings" type="id" />
+  <item name="controller_moexSettings" type="id" />
+  <item name="btn_moexCrowdinLink" type="id" />
+  <item name="btn_moexChatLink" type="id" />
+  <item name="btn_moexChannelLink" type="id" />
+  <item name="btn_moexSourceLink" type="id" />
+  <item name="btn_disableCameraButton" type="id" />
+  <item name="btn_disableRecordButton" type="id" />
+  <item name="btn_disableCommandsButton" type="id" />
+  <item name="btn_moexSettings" type="id" />
+  <item name="btn_disableStickerTimestamp" type="id" />
+  <item name="btn_chatId" type="id" />
+  <item name="btn_hidePhone" type="id" />
+  <item name="btn_enableFeaturesButton" type="id" />
+  <item name="btn_showIdProfile" type="id" />
+  <item name="btn_disableSendAsButton" type="id" />
+  <item name="btn_roundedStickers" type="id" />
+  <item name="btn_IncreaseRecents" type="id" />
+  <item name="btn_hideMessagesBadge" type="id" />
+  <item name="btn_changeSizeLimit" type="id" />
+  <item name="btn_sizeLimit800" type="id" />
+  <item name="btn_sizeLimit1280" type="id" />
+  <item name="btn_sizeLimit2560" type="id" />
+  <item name="btn_copyPhoto" type="id" />
+  <item name="btn_saveSticker" type="id" />
+  <item name="btn_msgRepeat" type="id" />
+  <item name="btn_rememberOptions" type="id" />
+  <item name="btn_squareAvatar" type="id"/>
+  <item name="btn_blurDrawer" type="id" />
+  <item name="btn_headerText" type="id" />
+  <item name="btn_headerTextChats" type="id" />
+  <item name="btn_headerTextMoex" type="id" />
+  <item name="btn_headerTextUsername" type="id" />
+  <item name="btn_headerTextName" type="id" />
+  <item name="btn_typingInstead" type="id"/>
+  <item name="btn_disableReactions" type="id"/>
+  <item name="btn_hideMessagePanelButtons" type="id" />
+  <item name="btn_hideBottomBar" type="id" />
+  <item name="controller_details" type="id"/>
+  <item name="btn_msgDetails" type="id"/>
+  <item name="btn_chatIdDetails" type="id"/>
+  <item name="btn_dateDetails" type="id"/>
+  <item name="btn_senderDetails" type="id"/>
+  <item name="btn_authorDetails" type="id"/>
+  <item name="btn_openPath" type="id"/>
+  <item name="btn_audioPerformerDetails" type="id"/>
+  <item name="btn_audioSongNameDetails" type="id"/>
+  <item name="btn_openProfile" type="id"/>
+  <item name="btn_openGroupProfile" type="id"/>
+  <item name="btn_mime" type="id" />
+  <item name="btn_fileRes" type="id" />
+  <item name="btn_fileCaption" type="id" />
+  <item name="btn_filePath" type="id" />
+  <item name="btn_fileName" type="id" />
+  <item name="btn_fileDuration" type="id" />
+  <item name="btn_stickerEmojiDetails" type="id" />
+  <item name="btn_mediaBitrate" type="id" />
+  <item name="btn_storyId" type="id" />
+  <item name="btn_darkenDrawer" type="id" />
+  <item name="btn_saveDocument" type="id" />
+  <item name="btn_MiscMoexSettings" type="id" />
+  <item name="btn_profileNote" type="id" />
+  <item name="btn_profileNote_copy" type="id" />
+  <item name="btn_profileNote_edit" type="id" />
+  <item name="btn_profileNote_clear" type="id" />
+  <item name="btn_personalChannel" type="id"/>
+  <item name="rearRoundVideo" type="id"/>
+  <item name="frontRoundVideo" type="id"/>
+  <item name="askRoundVideo" type="id"/>
+  <item name="btn_pinAudioProfile" type="id" />
+  <item name="btn_removeProfileAudio" type="id" />
+  <item name="btn_proxyDisableOnVpn" type="id" />
+  <item name="btn_autoPauseMedia" type="id" />
+  <item name="autoPauseTypeVoice" type="id" />
+  <item name="autoPauseTypeRound" type="id" />
+  <item name="autoPauseTypeVideo" type="id" />
+  <item name="btn_autoPauseResume" type="id" />
+  <item name="btn_recentChannel" type="id" />
+  <item name="btn_setPersonalChannel" type="id" />
+  <item name="btn_toggleEdgeAnimSide" type="id" />
+  <item name="btn_profileChannel" type="id" />
+</resources>

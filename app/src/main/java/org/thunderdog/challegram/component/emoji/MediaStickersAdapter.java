@@ -64,6 +64,7 @@ import org.thunderdog.challegram.widget.TrendingPackHeaderView;
 import java.util.ArrayList;
 
 import me.vkryl.android.widget.FrameLayoutFix;
+import moe.kirao.mgx.MoexConfig;
 
 public class MediaStickersAdapter extends RecyclerView.Adapter<MediaStickersAdapter.StickerHolder> implements View.OnClickListener {
 
@@ -283,7 +284,7 @@ public class MediaStickersAdapter extends RecyclerView.Adapter<MediaStickersAdap
   }
 
   public void updateCollapseView (TextView collapseView, TGStickerSetInfo stickerSet, @StringRes int showMoreRes) {
-    if (stickerSet != null && stickerSet.getFullSize() > Config.DEFAULT_SHOW_RECENT_STICKERS_COUNT) {
+    if (stickerSet != null && stickerSet.getFullSize() > (MoexConfig.increaseRecents ? 20 : 10)) {
       if (stickerSet.isCollapsed()) {
         int moreSize = stickerSet.getFullSize() - stickerSet.getSize();
         collapseView.setText(Lang.pluralBold(showMoreRes, moreSize));

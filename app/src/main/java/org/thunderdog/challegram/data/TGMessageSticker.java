@@ -62,6 +62,8 @@ import me.vkryl.core.collection.LongSet;
 import tgx.td.Td;
 import tgx.td.TdConstants;
 
+import moe.kirao.mgx.MoexConfig;
+
 public class TGMessageSticker extends TGMessage implements AnimatedEmojiListener, TdlibEmojiManager.Watcher {
   private @Nullable TdApi.DiceStickers sticker;
   private @Nullable TdApi.FormattedText formattedText;
@@ -174,6 +176,7 @@ public class TGMessageSticker extends TGMessage implements AnimatedEmojiListener
         receiver.getPreviewReceiver(key).clear();
         return;
       }
+      float corners = MoexConfig.roundedStickers ? Screen.dp(Theme.getBubbleMergeRadius()) : 0;
       //if (!invalidate) {
         DoubleImageReceiver previewReceiver = receiver.getPreviewReceiver(key);
         if (preview == null || hasAnimationEnded()) {
@@ -182,14 +185,17 @@ public class TGMessageSticker extends TGMessage implements AnimatedEmojiListener
           previewReceiver.clear();
           preview = null;
         } else {
+          previewReceiver.setRadius(corners);
           previewReceiver.requestFile(null, preview);
         }
       //}
       GifFile file = receiver.getGifReceiver(key).getCurrentFile();
       if (file != animatedFile) {
+        receiver.getGifReceiver(key).setRadius(corners);
         receiver.getGifReceiver(key).requestFile(null);         // The new file may have the same id as
         receiver.getGifReceiver(key).requestFile(animatedFile); // old file, but a different requestedSize
       }
+      receiver.getImageReceiver(key).setRadius(corners);
       receiver.getImageReceiver(key).requestFile(staticFile);
     }
 

@@ -38,9 +38,10 @@ import java.io.InputStream;
 
 import me.vkryl.core.MathUtils;
 import me.vkryl.core.StringUtils;
+import moe.kirao.mgx.MoexConfig;
 
 public class PhotoGenerationInfo extends GenerationInfo {
-  public static final int SIZE_LIMIT = 1280;
+  public static int SIZE_LIMIT = setSizeLimit();
 
   private int rotation; // 0, 90, 180 or 270
   private boolean isFiltered;
@@ -460,5 +461,18 @@ public class PhotoGenerationInfo extends GenerationInfo {
     }
 
     return b.toString();
+  }
+
+  public static int setSizeLimit () {
+    int size = MoexConfig.instance().getSizeLimit();
+    switch (size) {
+      case 0:
+        return 800;
+      default:
+      case 1:
+        return 1280;
+      case 2:
+        return 2560;
+    }
   }
 }

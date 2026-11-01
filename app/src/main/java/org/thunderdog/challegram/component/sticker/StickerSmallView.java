@@ -52,6 +52,7 @@ import me.vkryl.android.animator.FactorAnimator;
 import me.vkryl.core.lambda.CancellableRunnable;
 import me.vkryl.core.lambda.Destroyable;
 import tgx.td.Td;
+import moe.kirao.mgx.MoexConfig;
 
 public class StickerSmallView extends View implements FactorAnimator.Target, StickerPreviewView.PreviewCallback, Destroyable {
   public static final float PADDING = 8f;
@@ -97,6 +98,7 @@ public class StickerSmallView extends View implements FactorAnimator.Target, Sti
   public void setSticker (@Nullable TGStickerObj sticker) {
     this.sticker = sticker;
     this.isAnimation = sticker != null && sticker.isAnimated();
+    float corners = MoexConfig.roundedStickers ? Screen.dp(Theme.getImageRadius()) : 0;
     resetStickerState();
     ImageFile imageFile = sticker != null && !sticker.isEmpty() ? sticker.getImage() : null;
     GifFile gifFile = sticker != null && !sticker.isEmpty() ? sticker.getPreviewAnimation() : null;
@@ -104,7 +106,9 @@ public class StickerSmallView extends View implements FactorAnimator.Target, Sti
       throw new RuntimeException("");
     }
     contour = sticker != null ? sticker.getContour(Math.min(imageReceiver.getWidth(), imageReceiver.getHeight())) : null;
+    imageReceiver.setRadius(corners);
     imageReceiver.requestFile(imageFile);
+    gifReceiver.setRadius(corners);
     gifReceiver.requestFile(gifFile);
   }
 
@@ -540,7 +544,7 @@ public class StickerSmallView extends View implements FactorAnimator.Target, Sti
       if (reaction != null) {
         boolean disableEmoji = isSuggestion || emojiDisabled;
         reaction.withEffectAnimation(effectAnimation -> {
-          ((BaseActivity) getContext()).openReactionPreview(tdlib, this, reaction, effectAnimation, left + width / 2, top + height / 2 + (callback != null ? callback.getStickersListTop() : 0), Math.min(width, height) - Screen.dp(PADDING) * 2, callback.getViewportHeight(), disableEmoji);
+          ((BaseActivity) getContext()).openReactionPreview(tdlib, this, reaction, effectAnimation, left + width / 2, top + height / 2 + (callback != null ? callback.getStickersListTop() : 0), Math.min(width, height) - Screen.dp(PADDING) * 2, callback.getViewportHeight(), disableEmoji, null);
         });
         return;
       }

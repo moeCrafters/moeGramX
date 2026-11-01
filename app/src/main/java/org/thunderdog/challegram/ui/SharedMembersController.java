@@ -251,6 +251,7 @@ public class SharedMembersController extends SharedBaseController<DoubleTextWrap
         }
         break;
       }
+      case ListItem.TYPE_CHAT_PROFILE:
       case ListItem.TYPE_CHAT_SMALL: {
         // chatView.setEnabled(tdlib.myUserId() != user.getUserId() || !isCreator /*&& (!isCreator || specificFilter.getConstructor() == TdApi.ChannelMembersFilterRecent.CONSTRUCTOR)*/);
         chatView.clearPreviewChat();

@@ -145,6 +145,8 @@ import tgx.td.client.RtcServer;
 import tgx.td.client.TdlibOptions;
 import tgx.td.data.MessageWithProperties;
 
+import moe.kirao.mgx.MoexConfig;
+
 public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, DateChangeListener {
   @Override
   public final int accountId () {
@@ -337,6 +339,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
         startup = new TdApi.SetAlarm(0);
       }
       client.send(startup, (result) -> {
+        boolean bypassForVpn = MoexConfig.shouldBypassProxyForVpn();
         if (result.getConstructor() == TdApi.AddedProxies.CONSTRUCTOR) {
           TdApi.AddedProxy[] proxies = ((TdApi.AddedProxies) result).proxies;
           boolean foundEnabledProxy = false;
@@ -344,17 +347,21 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
             int proxyId = Settings.instance().addOrUpdateProxy(addedProxy.proxy, null, addedProxy.isEnabled);
             if (addedProxy.isEnabled) {
               tdlib.setEffectiveProxyId(proxyId);
-              tdlib.setProxy(proxyId, addedProxy.proxy);
+              if (!bypassForVpn) {
+                tdlib.setProxy(proxyId, addedProxy.proxy);
+              }
               foundEnabledProxy = true;
             }
           }
           if (!foundEnabledProxy) {
             tdlib.setEffectiveProxyId(Settings.PROXY_ID_NONE);
+          } else if (bypassForVpn) {
+            tdlib.disableProxy();
           }
         } else {
           int proxyId = Settings.instance().getEffectiveProxyId();
           Settings.Proxy proxy = Settings.instance().getProxyConfig(proxyId);
-          if (proxy != null) {
+          if (proxy != null && !bypassForVpn) {
             tdlib.setProxy(proxyId, proxy.proxy);
           } else {
             tdlib.disableProxy();
@@ -5079,6 +5086,10 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
     }
     if (myUserId == TDLIB_CREATOR_USER_ID) {
       callback.runWithInt(TesterLevel.DEVELOPER);
+      return;
+    }
+    if (MoexConfig.enableTestFeatures) {
+      callback.runWithInt(TesterLevel.MIN_LEVEL_FOR_DEBUG_DC);
       return;
     }
 
@@ -10942,7 +10953,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
         int buildNo = 0;
         String version = null;
         String commit = null;
-        final String prefix = "Telegram-X-";
+        final String prefix = "moeGramX-";
         if (!StringUtils.isEmpty(document.fileName) && document.fileName.startsWith(prefix)) {
           int i = document.fileName.indexOf('-', prefix.length());
           version = document.fileName.substring(prefix.length(), i == -1 ? document.fileName.length() : i);

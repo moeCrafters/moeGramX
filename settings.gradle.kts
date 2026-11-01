@@ -22,7 +22,7 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "tgx"
+rootProject.name = "moeGramX"
 includeBuild("vkryl/annotation")
 include(
   ":tdlib",

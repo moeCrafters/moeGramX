@@ -10,6 +10,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 
+import moe.kirao.mgx.MoexConfig;
+
 import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.component.dialogs.ChatView;
 import org.thunderdog.challegram.data.AvatarPlaceholder;
@@ -1126,7 +1128,7 @@ public class AvatarReceiver implements Receiver, ChatListener, TdlibCache.UserDa
       float maxRadius = Math.min(getWidth(), getHeight()) / 2f;
       float defaultAvatarRadius = defaultAvatarRadiusPropertyId != 0 ? Theme.getProperty(defaultAvatarRadiusPropertyId) : -1.0f;
       if (defaultAvatarRadius == -1.0f) {
-        defaultAvatarRadius = Theme.getProperty(PropertyId.AVATAR_RADIUS);
+        defaultAvatarRadius = Theme.getProperty(MoexConfig.squareAvatar ? PropertyId.SUBTITLE_ALPHA : PropertyId.AVATAR_RADIUS);
       }
       float forumAvatarRadius = forumAvatarRadiusPropertyId != 0 ? Theme.getProperty(forumAvatarRadiusPropertyId) : -1.0f;
       if (forumAvatarRadius == -1.0f) {

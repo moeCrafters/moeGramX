@@ -27,6 +27,14 @@ import kotlin.contracts.ExperimentalContracts
 abstract class GenerateLangFunctions : DefaultTask() {
   @get:InputFile
   @get:PathSensitive(PathSensitivity.RELATIVE)
+  abstract val simplifiedChineseStrings: RegularFileProperty
+
+  @get:InputFile
+  @get:PathSensitive(PathSensitivity.RELATIVE)
+  abstract val traditionalChineseStrings: RegularFileProperty
+
+  @get:InputFile
+  @get:PathSensitive(PathSensitivity.RELATIVE)
   abstract val stringsXml: RegularFileProperty
 
   @get:InputFile
@@ -48,6 +56,17 @@ abstract class GenerateLangFunctions : DefaultTask() {
   fun generateResourcesAndThemes () {
     val kotlin = validateDir(kotlinOutputDir.get().asFile)
     val res = validateDir(resOutputDir.get().asFile)
+
+    // Script qualifiers are unavailable on API <= 20. Keep local moe strings
+    // available through the regional locales selected by Lang on those devices.
+    for ((source, region) in listOf(
+      simplifiedChineseStrings to "CN",
+      traditionalChineseStrings to "TW"
+    )) {
+      writeToFile(res.resolve("values-zh-r$region/moex_strings.xml")) { xml ->
+        xml.append(source.get().asFile.readText())
+      }
+    }
 
     val strings = XmlParser().parse(stringsXml.get().asFile)
 

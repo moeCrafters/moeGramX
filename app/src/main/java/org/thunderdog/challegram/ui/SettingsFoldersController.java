@@ -39,6 +39,7 @@ import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.component.base.SettingView;
 import org.thunderdog.challegram.component.user.RemoveHelper;
+import org.thunderdog.challegram.config.Config;
 import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.data.TD;
 import org.thunderdog.challegram.navigation.SettingsWrapBuilder;
@@ -150,6 +151,10 @@ public class SettingsFoldersController extends RecyclerViewController<Void> impl
     items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_appBadge, 0, R.string.BadgeCounter));
     items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
     items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_archiveAsFolder, 0, R.string.ArchiveAsFolder));
+    if (!Config.RESTRICT_HIDING_MAIN_LIST) {
+      items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+      items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_hideFolder, 0, R.string.HideAllChats));
+    }
     items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
 
     items.add(new ListItem(ListItem.TYPE_HEADER, 0, 0, R.string.ChatFolders));
@@ -312,6 +317,9 @@ public class SettingsFoldersController extends RecyclerViewController<Void> impl
         } else if (item.getId() == R.id.btn_archiveAsFolder) {
           boolean showArchiveAsFolder = tdlib.settings().isChatListEnabled(ChatPosition.CHAT_LIST_ARCHIVE);
           view.getToggler().setRadioEnabled(showArchiveAsFolder, isUpdate);
+        } else if (item.getId() == R.id.btn_hideFolder) {
+          boolean showAllChats = tdlib.settings().isChatListEnabled(ChatPosition.CHAT_LIST_MAIN);
+          view.getToggler().setRadioEnabled(!showAllChats, isUpdate);
         }
       }
     };
@@ -482,6 +490,10 @@ public class SettingsFoldersController extends RecyclerViewController<Void> impl
     } else if (v.getId() == R.id.btn_archiveAsFolder) {
       boolean showArchiveAsFolder = adapter.toggleView(v);
       tdlib.settings().setChatListEnabled(ChatPosition.CHAT_LIST_ARCHIVE, showArchiveAsFolder);
+      updateChatFolders();
+    } else if (v.getId() == R.id.btn_hideFolder) {
+      boolean showAllChats = adapter.toggleView(v);
+      tdlib.settings().setChatListEnabled(ChatPosition.CHAT_LIST_MAIN, !showAllChats);
       updateChatFolders();
     }
   }

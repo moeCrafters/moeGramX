@@ -74,6 +74,7 @@ public class EditNameController extends EditBaseController<EditNameController.Ar
     public TdApi.AuthorizationStateWaitRegistration authState;
     public String formattedPhone;
     public String knownPhoneNumber;
+    public String currentNote;
 
     public Args (int mode, TdApi.AuthorizationStateWaitRegistration authState, String formattedPhone) {
       this.mode = mode;
@@ -83,6 +84,11 @@ public class EditNameController extends EditBaseController<EditNameController.Ar
 
     public Args setKnownPhoneNumber (String phoneNumber) {
       this.knownPhoneNumber = phoneNumber;
+      return this;
+    }
+
+    public Args setCurrentNote (String note) {
+      this.currentNote = note;
       return this;
     }
   }
@@ -107,16 +113,22 @@ public class EditNameController extends EditBaseController<EditNameController.Ar
   private int mode;
   private TdApi.User user;
   private String knownPhoneNumber;
+  private String currentNote;
 
   @Override
   public void setArguments (Args args) {
     super.setArguments(args);
     this.mode = args.mode;
     this.knownPhoneNumber = args.knownPhoneNumber;
+    this.currentNote = args.currentNote;
   }
 
   public void setKnownPhoneNumber (String phoneNumber) {
     this.knownPhoneNumber = phoneNumber;
+  }
+
+  public void setCurrentNote (String note) {
+    this.currentNote = note;
   }
 
   @Override
@@ -127,13 +139,18 @@ public class EditNameController extends EditBaseController<EditNameController.Ar
   private SettingsAdapter adapter;
   private ListItem firstName, shareMyNumber;
   private @Nullable ListItem lastName;
+  private @Nullable ListItem profileNoteItem;
 
   @Override
   protected void onCreateView (Context context, FrameLayoutFix contentView, RecyclerView recyclerView) {
     adapter = new SettingsAdapter(this) {
       @Override
       protected void modifyEditText (ListItem item, ViewGroup parent, MaterialEditTextGroup editText) {
-        editText.getEditText().setInputType(InputType.TYPE_TEXT_VARIATION_PERSON_NAME | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        if (item.getId() == R.id.btn_profileNote_edit) {
+          editText.getEditText().setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+        } else {
+          editText.getEditText().setInputType(InputType.TYPE_TEXT_VARIATION_PERSON_NAME | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        }
       }
 
       @Override
@@ -207,6 +224,18 @@ public class EditNameController extends EditBaseController<EditNameController.Ar
           new EmojiFilter(),
           new CharacterStyleFilter()
         }).setOnEditorActionListener(new SimpleEditorActionListener(EditorInfo.IME_ACTION_DONE, this))));
+    }
+    if ((mode == Mode.RENAME_CONTACT || mode == Mode.ADD_CONTACT) && user != null) {
+      String noteValue = currentNote != null ? currentNote : "";
+      items.add(profileNoteItem = new ListItem(ListItem.TYPE_EDITTEXT_NO_PADDING, R.id.btn_profileNote_edit, 0, R.string.ProfileNote)
+        .setStringValue(noteValue)
+        .setInputFilters(new InputFilter[] {
+          new CodePointCountFilter(TdConstants.MAX_CHAT_TITLE_LENGTH),
+          new EmojiFilter(),
+          new CharacterStyleFilter()
+        })
+        .setOnEditorActionListener(new SimpleEditorActionListener(EditorInfo.IME_ACTION_DONE, this)));
+      items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, Lang.getStringBold(R.string.ProfileNoteHint), false));
     }
     TdApi.TermsOfService termsOfService = mode == Mode.SIGNUP ? getArgumentsStrict().authState.termsOfService : null;
     if (termsOfService != null && termsOfService.minUserAge != 0) {
@@ -335,10 +364,11 @@ public class EditNameController extends EditBaseController<EditNameController.Ar
         case Mode.RENAME_CONTACT: {
           if (user != null) {
             setDoneInProgress(true);
+            TdApi.FormattedText note = new TdApi.FormattedText(profileNoteItem != null ? profileNoteItem.getStringValue() : "", null);
             TdApi.ImportedContact contact = new TdApi.ImportedContact(
               !StringUtils.isEmpty(knownPhoneNumber) ? knownPhoneNumber : user.phoneNumber,
               firstName, lastName,
-              null
+              note
             );
             boolean sharePhoneNumber = shareMyNumber != null && shareMyNumber.isSelected();
             tdlib.client().send(new TdApi.AddContact(user.id, contact, sharePhoneNumber), this);
@@ -400,6 +430,9 @@ public class EditNameController extends EditBaseController<EditNameController.Ar
       updateDoneState();
     } else if (id == R.id.edit_last_name && lastName != null) {
       lastName.setStringValue(text);
+      updateDoneState();
+    } else if (id == R.id.btn_profileNote_edit && profileNoteItem != null) {
+      profileNoteItem.setStringValue(text);
       updateDoneState();
     }
   }

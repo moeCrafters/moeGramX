@@ -29,6 +29,7 @@ import androidx.annotation.Nullable;
 import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.FillingDrawable;
 import org.thunderdog.challegram.R;
+import org.thunderdog.challegram.U;
 import org.thunderdog.challegram.component.dialogs.ChatView;
 import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.data.AvatarPlaceholder;
@@ -61,8 +62,9 @@ import me.vkryl.android.util.ClickHelper;
 import me.vkryl.core.ColorUtils;
 import me.vkryl.core.StringUtils;
 import me.vkryl.core.lambda.Destroyable;
+import moe.kirao.mgx.MoexConfig;
 
-public class DrawerHeaderView extends View implements Destroyable, GlobalAccountListener, GlobalCountersListener, FactorAnimator.Target, ClickHelper.Delegate, TGLegacyManager.EmojiLoadListener {
+public class DrawerHeaderView extends View implements Destroyable, GlobalAccountListener, GlobalCountersListener, FactorAnimator.Target, ClickHelper.Delegate, TGLegacyManager.EmojiLoadListener, MoexConfig.SettingsChangeListener {
   private static final int DRAWER_ALPHA = 90;
 
   // private final TextPaint namePaint, phonePaint;
@@ -103,6 +105,7 @@ public class DrawerHeaderView extends View implements Destroyable, GlobalAccount
     setUser(account);
 
     TGLegacyManager.instance().addEmojiListener(this);
+    MoexConfig.instance().addSettingsListener(this);
 
     ViewUtils.setBackground(this, new FillingDrawable(ColorId.headerBackground) {
       @Override
@@ -190,6 +193,13 @@ public class DrawerHeaderView extends View implements Destroyable, GlobalAccount
     return (emojiStatus != null && emojiStatus.onTouchEvent(this, event)) || clickHelper.onTouchEvent(this, event);
   }
 
+  @Override
+  public void onSettingsChanged (String key, Object newSettings, Object oldSettings) {
+    if (key.equals(MoexConfig.KEY_BLUR_DRAWER) || key.equals(MoexConfig.KEY_HIDE_PHONE_NUMBER)) {
+      setUser(currentAccount);
+    }
+  }
+
   // Other
 
   @Override
@@ -197,6 +207,7 @@ public class DrawerHeaderView extends View implements Destroyable, GlobalAccount
     TdlibManager.instance().global().removeAccountListener(this);
     TdlibManager.instance().global().removeCountersListener(this);
     TGLegacyManager.instance().removeEmojiListener(this);
+    MoexConfig.instance().removeSettingsListener(this);
     if (displayInfoFuture != null) {
       displayInfoFuture.performDestroy();
       displayInfoFuture = null;
@@ -276,6 +287,7 @@ public class DrawerHeaderView extends View implements Destroyable, GlobalAccount
 
     private final long userId;
     private final String name, phone;
+    private String username;
     private ImageFile avatar, avatarFull;
     private final AvatarPlaceholder avatarPlaceholder;
     private final EmojiStatusHelper emojiStatusHelper;
@@ -299,7 +311,10 @@ public class DrawerHeaderView extends View implements Destroyable, GlobalAccount
         avatarFull = bigFile;
         avatarFull.setScaleType(ImageFile.CENTER_CROP);
         int drawerWidth = context.parent.getWidth();
-        if (drawerWidth < 512) {
+        if (MoexConfig.blurDrawer) {
+          avatarFull.setSize(160);
+          avatarFull.setNeedBlur();
+        } else if (drawerWidth < 512) {
           avatarFull.setSize(drawerWidth);
         }
       } else {
@@ -319,7 +334,12 @@ public class DrawerHeaderView extends View implements Destroyable, GlobalAccount
       userId = account.getKnownUserId();
       if (account.hasUserInfo()) {
         name = account.getName();
-        if (Settings.instance().needHidePhoneNumber()) {
+        username = account.getUsername();
+        if (MoexConfig.hidePhoneNumber && !StringUtils.isEmpty(username)) {
+          phone = "@" + username;
+        } else if (MoexConfig.hidePhoneNumber) {
+          phone = String.valueOf(userId);
+        } else if (Settings.instance().needHidePhoneNumber()) {
           phone = Strings.replaceNumbers(Strings.formatPhone(account.getPhoneNumber()));
         } else {
           phone = Strings.formatPhone(account.getPhoneNumber());
@@ -416,6 +436,11 @@ public class DrawerHeaderView extends View implements Destroyable, GlobalAccount
             receiver.setRadius(cornerRadius);
             receiver.draw(c);
             receiver.restorePaintAlpha();
+            if (MoexConfig.darkenDrawer) {
+              RectF rectF = Paints.getRectF();
+              rectF.set(left, top, right, bottom);
+              c.drawRoundRect(rectF, cornerRadius, cornerRadius, Paints.fillingPaint(ColorUtils.alphaColor(45, 0x1a000000)));
+            }
           } else {
             receiver.setRadius(0);
           }

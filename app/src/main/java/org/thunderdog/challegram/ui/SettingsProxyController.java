@@ -54,6 +54,8 @@ import me.vkryl.core.StringUtils;
 import me.vkryl.core.collection.IntList;
 import me.vkryl.core.lambda.CancellableRunnable;
 
+import moe.kirao.mgx.MoexConfig;
+
 public class SettingsProxyController extends RecyclerViewController<Void> implements View.OnLongClickListener, View.OnClickListener, Settings.ProxyChangeListener, ConnectionListener, MoreDelegate, GlobalProxyPingListener {
   public SettingsProxyController (Context context, Tdlib tdlib) {
     super(context, tdlib);
@@ -386,28 +388,34 @@ public class SettingsProxyController extends RecyclerViewController<Void> implem
     items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, R.string.UseProxyForCallsInfo));
   }
 
-  private static ListItem[] newAutoSwitchItems () {
+  private static final int PROXY_OPTION_BLOCK_SIZE = newProxyOptionItems().length;
+
+  private static ListItem[] newProxyOptionItems () {
     return new ListItem[] {
       new ListItem(ListItem.TYPE_SHADOW_TOP),
       new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_proxyAutoSwitch, 0, R.string.ProxyAutoSwitch),
       new ListItem(ListItem.TYPE_SHADOW_BOTTOM),
-      new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, R.string.ProxyAutoSwitchHint)
+      new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, R.string.ProxyAutoSwitchHint),
+      new ListItem(ListItem.TYPE_SHADOW_TOP),
+      new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_proxyDisableOnVpn, 0, R.string.ProxyDisableOnVpn),
+      new ListItem(ListItem.TYPE_SHADOW_BOTTOM),
+      new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, R.string.ProxyDisableOnVpnHint)
     };
   }
 
-  private void checkAutoSwitchItems () {
-    boolean canSwitchAutomatically = !proxies.isEmpty();
-    if (this.hasProxyAutoSwitchSettings != canSwitchAutomatically) {
-      this.hasProxyAutoSwitchSettings = canSwitchAutomatically;
-      if (canSwitchAutomatically) {
+  private void checkProxyOptionItems () {
+    boolean hasProxyOptions = !proxies.isEmpty();
+    if (this.hasProxyOptionSettings != hasProxyOptions) {
+      this.hasProxyOptionSettings = hasProxyOptions;
+      if (hasProxyOptions) {
         int i = adapter.indexOfViewById(R.id.btn_addProxy);
         if (i != -1) {
-          adapter.addItems(i + 2, newAutoSwitchItems());
+          adapter.addItems(i + 2, newProxyOptionItems());
         }
       } else {
         int i = adapter.indexOfViewById(R.id.btn_proxyAutoSwitch);
         if (i != -1) {
-          adapter.removeRange(i - 1, 4);
+          adapter.removeRange(i - 1, PROXY_OPTION_BLOCK_SIZE);
         }
       }
     }
@@ -420,7 +428,7 @@ public class SettingsProxyController extends RecyclerViewController<Void> implem
     return true;
   }
 
-  private boolean hasProxyAutoSwitchSettings;
+  private boolean hasProxyOptionSettings;
 
   @Override
   protected void onCreateView (Context context, CustomRecyclerView recyclerView) {
@@ -441,9 +449,9 @@ public class SettingsProxyController extends RecyclerViewController<Void> implem
     items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
     items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, R.string.ProxyInfo));
 
-    hasProxyAutoSwitchSettings = !proxies.isEmpty();
-    if (hasProxyAutoSwitchSettings) {
-      Collections.addAll(items, newAutoSwitchItems());
+    hasProxyOptionSettings = !proxies.isEmpty();
+    if (hasProxyOptionSettings) {
+      Collections.addAll(items, newProxyOptionItems());
     }
 
     items.add(new ListItem(ListItem.TYPE_HEADER, 0, 0, R.string.ProxyConnections));
@@ -468,6 +476,8 @@ public class SettingsProxyController extends RecyclerViewController<Void> implem
         final int itemId = item.getId();
         if (itemId == R.id.btn_proxyAutoSwitch) {
           view.getToggler().setRadioEnabled(Settings.instance().checkProxySetting(Settings.PROXY_FLAG_SWITCH_AUTOMATICALLY), isUpdate);
+        } else if (itemId == R.id.btn_proxyDisableOnVpn) {
+          view.getToggler().setRadioEnabled(MoexConfig.disableProxyOnVpn, isUpdate);
         } else if (itemId == R.id.btn_noProxy || itemId == R.id.btn_proxy) {
           Settings.Proxy proxy = (Settings.Proxy) item.getData();
           if (proxy != null) {
@@ -578,7 +588,7 @@ public class SettingsProxyController extends RecyclerViewController<Void> implem
         if (i != -1) {
           proxies.remove(i);
         }
-        checkAutoSwitchItems();
+        checkProxyOptionItems();
       }
     }
   }
@@ -611,6 +621,9 @@ public class SettingsProxyController extends RecyclerViewController<Void> implem
       } else {
         Settings.instance().setProxySetting(Settings.PROXY_FLAG_SWITCH_AUTOMATICALLY, false);
       }
+    } else if (viewId == R.id.btn_proxyDisableOnVpn) {
+      MoexConfig.instance().toggleDisableProxyOnVpn();
+      adapter.updateValuedSettingById(R.id.btn_proxyDisableOnVpn);
     } else if (viewId == R.id.btn_addProxy) {
       tdlib.ui().addNewProxy(this, false);
     } else if (viewId == R.id.btn_proxy) {
@@ -768,10 +781,7 @@ public class SettingsProxyController extends RecyclerViewController<Void> implem
   }
 
   private int cellIndexToProxyIndex (int cellIndex) {
-    int headerItemCount = 7;
-    if (hasProxyAutoSwitchSettings) {
-      headerItemCount += 4;
-    }
+    int headerItemCount = adapter.indexOfViewById(R.id.btn_noProxy) + 2;
     if (cellIndex < headerItemCount)
       return -1;
     cellIndex -= headerItemCount;
@@ -783,10 +793,7 @@ public class SettingsProxyController extends RecyclerViewController<Void> implem
   }
 
   private int indexOfProxyCellByProxyIndex (int proxyIndex, int proxyId) {
-    int headerItemCount = 7;
-    if (hasProxyAutoSwitchSettings) {
-      headerItemCount += 4;
-    }
+    int headerItemCount = adapter.indexOfViewById(R.id.btn_noProxy) + 2;
     int index = headerItemCount + proxyIndex * 2;
     if (proxyId != -1 && indexOfProxy(proxyId) != index)
       throw new IllegalStateException("index: " + index + ", proxyIndex: " + indexOfProxy(proxyId));
@@ -795,7 +802,7 @@ public class SettingsProxyController extends RecyclerViewController<Void> implem
 
   private int indexOfProxy (int proxyId) {
     if (proxyId == Settings.PROXY_ID_NONE) {
-      return 5 + (hasProxyAutoSwitchSettings ? 4 : 0); // adapter.indexOfViewById(R.id.btn_noProxy);
+      return adapter.indexOfViewById(R.id.btn_noProxy);
     } else {
       return adapter.indexOfViewByLongId(proxyId);
     }
@@ -874,7 +881,7 @@ public class SettingsProxyController extends RecyclerViewController<Void> implem
         adapter.notifyItemRangeInserted(i, 2);
       }
 
-      checkAutoSwitchItems();
+      checkProxyOptionItems();
     }
   }
 }

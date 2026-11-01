@@ -40,6 +40,7 @@ public class HapticMenuHelper implements View.OnTouchListener, View.OnLongClickL
   public interface Provider {
     List<MenuItem> onCreateHapticMenu (View view);
     default int getAnchorMode (View view) { return MenuMoreWrap.ANCHOR_MODE_RIGHT; }
+    default int getAnchorOffsetY (View view) { return 0; }
   }
 
   public interface OnItemClickListener {
@@ -222,7 +223,7 @@ public class HapticMenuHelper implements View.OnTouchListener, View.OnLongClickL
     List<MenuItem> items = provider.onCreateHapticMenu(v);
     if (items != null && !items.isEmpty()) {
       // UI.forceVibrate(v, true);
-      openMenu(v, items, provider.getAnchorMode(v));
+      openMenu(v, items, provider.getAnchorMode(v), provider.getAnchorOffsetY(v));
       return true;
     }
     return false;
@@ -259,7 +260,7 @@ public class HapticMenuHelper implements View.OnTouchListener, View.OnLongClickL
   public boolean openMenu (View view) {
     List<MenuItem> items = provider.onCreateHapticMenu(view);
     if (items != null && !items.isEmpty()) {
-      openMenu(view, items, provider.getAnchorMode(view));
+      openMenu(view, items, provider.getAnchorMode(view), provider.getAnchorOffsetY(view));
       return true;
     }
     return false;
@@ -269,7 +270,7 @@ public class HapticMenuHelper implements View.OnTouchListener, View.OnLongClickL
     return hapticMenu != null && !hapticMenu.isWindowHidden();
   }
 
-  private void openMenu (View view, List<MenuItem> items, int anchorMode) {
+  private void openMenu (View view, List<MenuItem> items, int anchorMode, int anchorOffsetY) {
     if (hapticMenu != null) {
       hapticMenu.hideWindow(false);
       if (onHapticMenuListener != null) {
@@ -310,12 +311,17 @@ public class HapticMenuHelper implements View.OnTouchListener, View.OnLongClickL
       int centerY = out[1] + viewHeight / 2;
 
       int resultCenterX = Math.max(viewWidth / 2, Math.min(parentWidth - viewWidth / 2, targetCenterX));
-      int resultCenterY = targetCenterY - targetHeight / 2 - (anchorMode == MenuMoreWrap.ANCHOR_MODE_CENTER ? Screen.dp(12) : viewHeight / 2);
+      int resultCenterY;
+      if (anchorMode == MenuMoreWrap.ANCHOR_MODE_HEADER) {
+        resultCenterY = targetCenterY + targetHeight / 2 + viewHeight / 2 + anchorOffsetY;
+      } else {
+        resultCenterY = targetCenterY - targetHeight / 2 - (anchorMode == MenuMoreWrap.ANCHOR_MODE_CENTER ? Screen.dp(12) : viewHeight / 2) + anchorOffsetY;
+      }
 
       v.setTranslationX(resultCenterX - centerX + (anchorMode == MenuMoreWrap.ANCHOR_MODE_CENTER ? Screen.dp(8) : 0));
       v.setTranslationY(resultCenterY - centerY);
 
-      if (anchorMode == MenuMoreWrap.ANCHOR_MODE_CENTER) {
+      if (anchorMode == MenuMoreWrap.ANCHOR_MODE_CENTER || anchorMode == MenuMoreWrap.ANCHOR_MODE_HEADER) {
         moreWrap.setBubbleTailX(targetCenterX - (out[0] + resultCenterX - centerX));
       }
     });
@@ -328,7 +334,7 @@ public class HapticMenuHelper implements View.OnTouchListener, View.OnLongClickL
       }
     }
     moreWrap.setAnchorMode(anchorMode);
-    moreWrap.setShouldPivotBottom(true);
+    moreWrap.setShouldPivotBottom(anchorMode != MenuMoreWrap.ANCHOR_MODE_HEADER);
     moreWrap.setRightNumber(0);
 
     hapticMenu = new PopupLayout(view.getContext());

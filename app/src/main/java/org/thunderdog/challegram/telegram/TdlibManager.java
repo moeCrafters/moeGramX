@@ -87,6 +87,8 @@ import me.vkryl.core.lambda.Filter;
 import me.vkryl.core.lambda.RunnableBool;
 import me.vkryl.core.lambda.RunnableData;
 import me.vkryl.core.util.FilteredIterator;
+import moe.kirao.mgx.MoexConfig;
+import moe.kirao.mgx.utils.SystemUtils;
 import tgx.bridge.TokenRetrieverListener;
 import tgx.td.JSON;
 import tgx.td.Td;
@@ -316,11 +318,7 @@ public class TdlibManager implements Iterable<TdlibAccount>, UI.StateListener {
     @Override
     public void onProxyConfigurationChanged (int proxyId, @Nullable TdApi.Proxy proxy, String description, boolean isCurrent, boolean isNewAdd) {
       if (isCurrent) {
-        for (TdlibAccount account : TdlibManager.this) {
-          if (account.tdlib != null) {
-            account.tdlib.setProxy(proxyId, proxy);
-          }
-        }
+        applyProxyToAllAccounts(proxyId, proxy);
       }
     }
 
@@ -330,6 +328,29 @@ public class TdlibManager implements Iterable<TdlibAccount>, UI.StateListener {
     @Override
     public void onProxyAdded (Settings.Proxy proxy, boolean isCurrent) { }
   };
+
+  private final MoexConfig.SettingsChangeListener moexProxyListener = (key, newValue, oldValue) -> {
+    if (MoexConfig.KEY_DISABLE_PROXY_ON_VPN.equals(key)) {
+      applyCurrentProxyState();
+    }
+  };
+
+  private void applyCurrentProxyState () {
+    int proxyId = Settings.instance().getEffectiveProxyId();
+    Settings.Proxy proxy = Settings.instance().getProxyConfig(proxyId);
+    applyProxyToAllAccounts(proxyId, proxy != null ? proxy.proxy : null);
+  }
+
+  private void applyProxyToAllAccounts (int proxyId, @Nullable TdApi.Proxy proxy) {
+    boolean bypassForVpn = MoexConfig.shouldBypassProxyForVpn();
+    int effectiveProxyId = bypassForVpn ? Settings.PROXY_ID_NONE : proxyId;
+    TdApi.Proxy effectiveProxy = bypassForVpn ? null : proxy;
+    for (TdlibAccount account : TdlibManager.this) {
+      if (account.tdlib != null) {
+        account.tdlib.setProxy(effectiveProxyId, effectiveProxy);
+      }
+    }
+  }
 
   private @Nullable Crash crashInfo;
   private final WatchDogContext watchDog;
@@ -364,6 +385,12 @@ public class TdlibManager implements Iterable<TdlibAccount>, UI.StateListener {
     this.crashInfo = Settings.instance().findRecoveryCrash();
     load(firstInstanceId, forceService);
     Settings.instance().addProxyListener(proxyChangeListener);
+    MoexConfig.instance().addSettingsListener(moexProxyListener);
+    SystemUtils.registerVpnStateListener(() -> {
+      if (MoexConfig.disableProxyOnVpn) {
+        applyCurrentProxyState();
+      }
+    });
     notificationQueue().init();
 
     watchDog.register();

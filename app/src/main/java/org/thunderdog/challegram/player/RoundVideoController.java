@@ -78,6 +78,8 @@ import me.vkryl.android.animator.BoolAnimator;
 import me.vkryl.android.animator.FactorAnimator;
 import me.vkryl.android.widget.FrameLayoutFix;
 import me.vkryl.core.MathUtils;
+import moe.kirao.mgx.MoexConfig;
+import moe.kirao.mgx.utils.AudioFocusHelper;
 import tgx.td.Td;
 
 @RequiresApi(Build.VERSION_CODES.JELLY_BEAN)
@@ -88,6 +90,10 @@ public class RoundVideoController extends BasePlaybackController implements
 {
   private final BaseActivity context;
   private final VideoHandler handler;
+
+  private final AudioFocusHelper roundFocus = new AudioFocusHelper(
+    MoexConfig.AUTO_PAUSE_MEDIA_ROUND,
+    () -> TdlibManager.instance().player().playPauseCurrent(false));
 
   public RoundVideoController (BaseActivity context) {
     this.context = context;
@@ -106,11 +112,13 @@ public class RoundVideoController extends BasePlaybackController implements
 
   @Override
   protected void finishPlayback (Tdlib tdlib, TdApi.Message message, boolean byUserRequest) {
+    roundFocus.abandon();
     closePlayer(MODE_CLOSE);
   }
 
   @Override
   protected void startPlayback (Tdlib tdlib, TdApi.Message message, boolean byUserRequest, boolean hadObject, Tdlib previousTdlib, int previousFileId) {
+    roundFocus.request();
     float currentProgress = 0f;
 
     if (texturePrepared) {
@@ -972,6 +980,11 @@ public class RoundVideoController extends BasePlaybackController implements
   protected void playPause (boolean isPlaying) {
     if (this.isPlaying != isPlaying) {
       this.isPlaying = isPlaying;
+      if (isPlaying) {
+        roundFocus.request();
+      } else {
+        roundFocus.abandon();
+      }
       if (this.exoPlayer != null) {
         this.exoPlayer.setPlayWhenReady(isPlaying);
       }

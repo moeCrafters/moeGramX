@@ -144,6 +144,7 @@ import me.vkryl.core.lambda.RunnableData;
 import tgx.td.ChatId;
 import tgx.td.ChatPosition;
 import tgx.td.Td;
+import moe.kirao.mgx.MoexConfig;
 
 public class ShareController extends TelegramViewController<ShareController.Args> implements
   FactorAnimator.Target, Runnable, PopupLayout.PopupHeightProvider,
@@ -3348,13 +3349,22 @@ public class ShareController extends TelegramViewController<ShareController.Args
       needHideAuthor = result.get(R.id.btn_hideAuthor) == R.id.btn_hideAuthor;
       needRemoveCaptions = result.get(R.id.btn_removeCaptions) == R.id.btn_removeCaptions;
       forceSendWithoutSound = result.get(R.id.btn_sendNoSound) == R.id.btn_sendNoSound;
+
+      if (rememberOptions) {
+        MoexConfig.instance().SendAsCopy(needHideAuthor);
+        MoexConfig.instance().SendWithoutCaption(needRemoveCaptions);
+        MoexConfig.instance().SendSilent(forceSendWithoutSound);
+      }
     });
   }
 
   // Send messages
 
   private boolean isSent;
-  private boolean needHideAuthor, needRemoveCaptions, forceSendWithoutSound;
+  private final boolean rememberOptions = MoexConfig.rememberOptions;
+  private boolean needHideAuthor = rememberOptions && MoexConfig.instance().getAuthorState();
+  private boolean needRemoveCaptions = rememberOptions && MoexConfig.instance().getCaptionState();
+  private boolean forceSendWithoutSound = rememberOptions && MoexConfig.instance().getSilentState();
 
   private void sendMessages (boolean forceGoToChat, boolean isSingleTap, @Nullable TdApi.MessageSendOptions finalSendOptions) {
     sendMessages(forceGoToChat, isSingleTap, finalSendOptions, true);

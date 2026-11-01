@@ -2057,7 +2057,15 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
     if (needMessagesSearch) {
       flags |= SearchManager.FLAG_NEED_MESSAGES;
     }
+    if (isPicker() && filter != null) {
+      flags |= SearchManager.FLAG_CUSTOM_FILTER;
+    }
     return flags;
+  }
+
+  @Override
+  protected boolean filterChatSearchResult (TdApi.Chat chat) {
+    return !isPicker() || filter == null || filter.accept(chat);
   }
 
   @Override

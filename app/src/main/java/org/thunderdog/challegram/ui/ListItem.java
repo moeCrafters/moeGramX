@@ -164,6 +164,7 @@ public class ListItem {
 
   public static final int TYPE_HEADER_WITH_TEXT_BUTTON = 143;
   public static final int TYPE_HEADER_WITH_CHECKBOX = 144;
+  public static final int TYPE_CHAT_PROFILE = 145;
 
   public static final int TYPE_CHAT_EMPTY = 1000;
   public static final int TYPE_MESSAGE = 1001;

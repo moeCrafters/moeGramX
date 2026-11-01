@@ -75,6 +75,7 @@ import java.io.File;
 import java.lang.ref.Reference;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import me.vkryl.android.AnimatorUtils;
@@ -750,7 +751,7 @@ public class RecordAudioVideoController implements
   private BoolAnimator releaseAnimator = new BoolAnimator(ANIMATOR_RELEASE, this, AnimatorUtils.DECELERATE_INTERPOLATOR, 180l);
   private float releaseFactor;
 
-  private void setReleased (boolean isReleased, boolean animated) {
+  public void setReleased (boolean isReleased, boolean animated) {
     if (this.isReleased != isReleased) {
       this.isReleased = isReleased;
       releaseAnimator.setValue(isReleased, animated);
@@ -1047,8 +1048,9 @@ public class RecordAudioVideoController implements
   private long targetChatId;
   private @Nullable TdApi.MessageTopic targetMessageTopicId;
   private MessagesController targetController;
+  private boolean lastSelected;
 
-  public boolean startRecording (View view, boolean inRaiseMode) {
+  public boolean startRecording (View view, boolean inRaiseMode, Boolean frontFacing) {
     if (this.recordMode != RECORD_MODE_NONE) {
       return false;
     }
@@ -1114,7 +1116,8 @@ public class RecordAudioVideoController implements
       if (ownedCamera == null) {
         return false;
       }
-      prepareVideoRecording();
+      lastSelected = frontFacing;
+      prepareVideoRecording(frontFacing);
     }
 
     if (sendHelper != null)
@@ -1263,7 +1266,7 @@ public class RecordAudioVideoController implements
       ownedCamera.onCleanAfterHide();
       ownedCamera.releaseCameraLayout();
 
-      setupCamera(false);
+      setupCamera(false, lastSelected);
       context.releaseCameraOwnership();
       releasedTrace = Log.generateException();
       ownedCamera = null;
@@ -1275,7 +1278,7 @@ public class RecordAudioVideoController implements
   // Raise to Speak
 
   public boolean enterRaiseRecordMode () {
-    return startRecording(null, true);
+    return startRecording(null, true, null);
   }
 
   public boolean leaveRaiseRecordMode () {
@@ -1499,7 +1502,7 @@ public class RecordAudioVideoController implements
       resetRoundState();
       isCameraReady = false;
 
-      prepareVideoRecording();
+      prepareVideoRecording(lastSelected);
     }
     setRecordMode(mode, true);
   }
@@ -1588,8 +1591,8 @@ public class RecordAudioVideoController implements
 
   // Video record impl
 
-  private void setupCamera (boolean isOwned) {
-    ownedCamera.getManager().setPreferFrontFacingCamera(!Settings.instance().startRoundWithRear() && isOwned);
+  private void setupCamera (boolean isOwned, boolean frontFace) {
+    ownedCamera.getManager().setPreferFrontFacingCamera(frontFace);
     ownedCamera.getManager().setMaxResolution(isOwned ? (Settings.instance().needHqRoundVideos() ? MAX_HQ_ROUND_RESOLUTION : MAX_ROUND_RESOLUTION) : 0);
     ownedCamera.getLegacyManager().setNoPreviewBlur(false);
     ownedCamera.getLegacyManager().setUseRoundRender(isOwned);
@@ -1603,7 +1606,7 @@ public class RecordAudioVideoController implements
   private String roundOutputPath;
   private TdApi.File roundFile;
 
-  private void prepareVideoRecording () {
+  private void prepareVideoRecording (Boolean selected) {
     if (!StringUtils.isEmpty(roundKey)) {
       throw new IllegalStateException();
     }
@@ -1619,7 +1622,7 @@ public class RecordAudioVideoController implements
       }
     });
 
-    setupCamera(true);
+    setupCamera(true, Objects.requireNonNullElseGet(selected, () -> !Settings.instance().startRoundWithRear()));
     ownedCamera.setInEarlyInitialization();
     ownedCamera.setOutputController(context.navigation().getCurrentStackItem());
     ownedCamera.onPrepareToShow();

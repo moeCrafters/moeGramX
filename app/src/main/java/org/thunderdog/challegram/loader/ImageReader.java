@@ -97,7 +97,7 @@ public class ImageReader {
     }
 
     if (file instanceof ImageApicFile) {
-      readBytes(file, ((ImageApicFile) file).getApic().pictureData, listener);
+      readBytes(file, ((ImageApicFile) file).getPictureData(), listener);
       return;
     }
 

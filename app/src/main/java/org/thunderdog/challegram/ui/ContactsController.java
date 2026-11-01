@@ -1290,7 +1290,9 @@ public class ContactsController extends TelegramViewController<ContactsControlle
               if (users.length > 0) {
                 int i = 0;
                 for (TdApi.User user : rawUsers) {
-                  users[i++] = new TGUser(tdlib, user);
+                  TGUser tgUser = new TGUser(tdlib, user);
+                  tgUser.setShowMutual();
+                  users[i++] = tgUser;
                 }
               }
               processUsers(users);

@@ -14,8 +14,6 @@
  */
 package org.thunderdog.challegram.loader;
 
-import androidx.media3.extractor.metadata.id3.ApicFrame;
-
 import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.data.TD;
 import org.thunderdog.challegram.telegram.Tdlib;
@@ -32,14 +30,14 @@ public class ImageApicFile extends ImageFile {
     return message;
   }
 
-  private ApicFrame resultFrame;
+  private byte[] pictureData;
 
-  public void setApicFrame (ApicFrame frame) {
-    this.resultFrame = frame;
+  public void setPictureData (byte[] pictureData) {
+    this.pictureData = pictureData;
   }
 
-  public ApicFrame getApic () {
-    return resultFrame;
+  public byte[] getPictureData () {
+    return pictureData;
   }
 
   @Override

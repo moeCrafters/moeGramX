@@ -71,12 +71,14 @@ import me.vkryl.android.widget.FrameLayoutFix;
 import me.vkryl.core.collection.IntList;
 import me.vkryl.core.collection.LongList;
 
+import moe.kirao.mgx.MoexConfig;
+
 public class EmojiMediaListController extends ViewController<EmojiLayout> implements
   StickersListener,
   AnimationsListener,
   MediaGifsAdapter.Callback,
   ClickHelper.Delegate,
-  ForceTouchView.ActionListener {
+  ForceTouchView.ActionListener, MoexConfig.SettingsChangeListener {
 
   private static final int SECTION_STICKERS = 0;
   private static final int SECTION_GIFS = 1;
@@ -85,7 +87,6 @@ public class EmojiMediaListController extends ViewController<EmojiLayout> implem
   private EmojiLayoutSectionPager contentView;
   private final EmojiLayoutRecyclerController stickersController;
   private final EmojiLayoutTrendingController trendingSetsController;
-
   public EmojiMediaListController (Context context, Tdlib tdlib) {
     super(context, tdlib);
     stickersController = new EmojiLayoutRecyclerController(context, tdlib, EmojiLayout.STICKERS_INSTALLED_CONTROLLER_ID);
@@ -160,6 +161,14 @@ public class EmojiMediaListController extends ViewController<EmojiLayout> implem
   private MediaStickersAdapter trendingAdapter;
   private MediaGifsAdapter gifsAdapter;
   private RecyclerView gifsView;
+  private final int stickersCount = MoexConfig.increaseRecents ? 20 : 10;
+
+  @Override
+  public void onSettingsChanged (String key, Object newSettings, Object oldSettings) {
+    if (key.equals(MoexConfig.KEY_INCREASE_RECENTS_COUNT)) {
+      reloadRecentStickers();
+    }
+  }
 
   @Override
   protected View onCreateView (Context context) {
@@ -183,7 +192,7 @@ public class EmojiMediaListController extends ViewController<EmojiLayout> implem
           }
           stickersAdapter.addRange(endIndex, stickers);
         } else {
-          recentSet.setSize(Config.DEFAULT_SHOW_RECENT_STICKERS_COUNT);
+          recentSet.setSize(stickersCount);
           stickersAdapter.removeRange(recentSet.getEndIndex(), endIndex - recentSet.getEndIndex());
           shiftStickerSets(existingIndex, recentSet.getStartIndex());
         }
@@ -285,6 +294,8 @@ public class EmojiMediaListController extends ViewController<EmojiLayout> implem
     loadGIFs(); // to show or hide GIF section
     loadStickers(); // to show sections
     trendingSetsController.loadTrending(0, 20, 0); // to show blue badge?
+
+    MoexConfig.instance().addSettingsListener(this);
 
     return contentView;
   }
@@ -648,6 +659,7 @@ public class EmojiMediaListController extends ViewController<EmojiLayout> implem
   public void destroy () {
     super.destroy();
     tdlib.listeners().unsubscribeFromGlobalUpdates(this);
+    MoexConfig.instance().removeSettingsListener(this);
     stickersController.destroy();
     trendingSetsController.destroy();
   }
@@ -874,13 +886,13 @@ public class EmojiMediaListController extends ViewController<EmojiLayout> implem
     int visibleRecentCount = recentStickers != null ? Math.min(
       totalRecentCount,
       !needExpandRecentStickers() ?
-        Math.min(totalRecentCount, Config.DEFAULT_SHOW_RECENT_STICKERS_COUNT) :
+        Math.min(totalRecentCount, stickersCount) :
         totalRecentCount
     ) : 0;
 
     boolean haveFavorites = findFavoriteStickerSet() != -1;
 
-    allowCollapseRecent = totalRecentCount > Config.DEFAULT_SHOW_RECENT_STICKERS_COUNT;
+    allowCollapseRecent = totalRecentCount > stickersCount;
     showRecentTitle = haveRecentStickers && (
       Config.FORCE_SHOW_RECENTS_STICKERS_TITLE ||
         allowCollapseRecent ||
@@ -965,9 +977,9 @@ public class EmojiMediaListController extends ViewController<EmojiLayout> implem
       TGStickerSetInfo recentSet = stickersController.stickerSets.get(recentStickerSetIndex);
       setShowRecentTitle(
         Config.FORCE_SHOW_RECENTS_STICKERS_TITLE ||
-        recentSet.getFullSize() > Config.DEFAULT_SHOW_RECENT_STICKERS_COUNT ||
+        recentSet.getFullSize() > stickersCount ||
         (favoriteStickers != null && favoriteStickers.length > 0),
-        recentSet.getFullSize() > Config.DEFAULT_SHOW_RECENT_STICKERS_COUNT
+        recentSet.getFullSize() > stickersCount
       );
     }
 
@@ -1326,12 +1338,12 @@ public class EmojiMediaListController extends ViewController<EmojiLayout> implem
 
             showRecentTitle = totalRecentCount > 0 && (
               Config.FORCE_SHOW_RECENTS_STICKERS_TITLE ||
-              totalRecentCount > Config.DEFAULT_SHOW_RECENT_STICKERS_COUNT ||
+              totalRecentCount > stickersCount ||
               favoriteStickers.length > 0
             );
-            allowCollapseRecents = totalRecentCount > Config.DEFAULT_SHOW_RECENT_STICKERS_COUNT;
+            allowCollapseRecents = totalRecentCount > stickersCount;
             int visibleRecentCount = allowCollapseRecents && !needExpandRecentStickers() ?
-              Config.DEFAULT_SHOW_RECENT_STICKERS_COUNT :
+              stickersCount :
               totalRecentCount;
 
             if (totalRecentCount > 0) {

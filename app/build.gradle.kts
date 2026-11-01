@@ -85,6 +85,12 @@ val generateLangFunctions = tasks.register<GenerateLangFunctions>("generateLangF
   stringsXml.set(layout.projectDirectory.file(
     "src/main/res/values/strings.xml"
   ))
+  simplifiedChineseStrings.set(layout.projectDirectory.file(
+    "src/main/res/values-b+zh+Hans/moex_strings.xml"
+  ))
+  traditionalChineseStrings.set(layout.projectDirectory.file(
+    "src/main/res/values-b+zh+Hant/moex_strings.xml"
+  ))
   colorIdJava.set(generateThemes.flatMap {
     it.kotlinOutputDir.file(
       "org/thunderdog/challegram/theme/ColorId.kt"
@@ -1162,6 +1168,9 @@ dependencies {
 
   // mp4parser: https://github.com/sannies/mp4parser/releases
   implementation(libs.mp4parser.isoparser)
+
+  // Gson: https://github.com/google/gson/blob/main/CHANGELOG.md
+  implementation("com.google.code.gson:gson:2.10.1")
 
   // Compiler warnings
   compileOnly(libs.annotations.errorprone)

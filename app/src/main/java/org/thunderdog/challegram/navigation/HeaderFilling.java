@@ -97,11 +97,15 @@ public class HeaderFilling extends Drawable implements TGLegacyAudioManager.Play
 
   // Player
 
+  private static final int SECTION_BIRTHDAY = 1;
   private static final int SECTION_AUDIO = 1 << 1;
   private static final int SECTION_CALL = 1 << 2;
 
   private Tdlib playingMessageTdlib;
   private TdApi.Message playingMessage;
+
+  private Tdlib birthdayTdlib;
+  private TdApi.CloseBirthdayUser[] birthdayUsers;
 
   private float fillFactor;
 
@@ -110,7 +114,7 @@ public class HeaderFilling extends Drawable implements TGLegacyAudioManager.Play
   private boolean showOngoingBar;
   private int ongoingSections;
 
-  private Drawable hangIcon, micIcon, forwardIcon;
+  private Drawable hangIcon, micIcon, forwardIcon, birthdayIcon;
   private final BoolAnimator speedIsActive;
   private final @Nullable Counter speedCounter;
 
@@ -146,6 +150,7 @@ public class HeaderFilling extends Drawable implements TGLegacyAudioManager.Play
     this.micIcon = Drawables.get(parent.getResources(), R.drawable.baseline_mic_24);
     this.hangIcon = Drawables.get(parent.getResources(), R.drawable.baseline_call_end_24);
     this.forwardIcon = Drawables.get(parent.getResources(), R.drawable.baseline_fast_forward_24);
+    this.birthdayIcon = Drawables.get(parent.getResources(), R.drawable.baseline_cake_variant_24);
     this.speedIsActive = new BoolAnimator(0, (a, b, c, d) -> invalidate(), AnimatorUtils.DECELERATE_INTERPOLATOR, 180L);
 
     this.textLeft = Screen.dp(72f);
@@ -471,6 +476,8 @@ public class HeaderFilling extends Drawable implements TGLegacyAudioManager.Play
       drawOngoingCall(c, playerTop, rectWidth, playerBottom);
     } else if (isCurrentSection(SECTION_AUDIO)) {
       drawOngoingAudio(c, playerTop, rectWidth, playerBottom);
+    } else if (isCurrentSection(SECTION_BIRTHDAY)) {
+      drawOngoingBirthday(c, playerTop, rectWidth, playerBottom);
     }
   }
 
@@ -669,6 +676,68 @@ public class HeaderFilling extends Drawable implements TGLegacyAudioManager.Play
   private void drawCloseIcon (Canvas c, int playerTop, float rectWidth, int playerBottom, boolean alignRight) {
     float cx = alignRight ? rectWidth - Screen.dp(50f) / 2 : Screen.dp(28f);
     DrawAlgorithms.drawMark(c, cx, playerTop + (playerBottom - playerTop) / 2, 1f, Screen.dp(9f), Paints.getProgressPaint(ColorUtils.alphaColor(dropShadowAlpha, Theme.iconColor()),  Screen.dp(2f)));
+  }
+
+  // Birthday
+
+  public void setBirthdayReminder (Tdlib tdlib, TdApi.CloseBirthdayUser[] todayUsers, boolean show) {
+    this.birthdayTdlib = tdlib;
+    this.birthdayUsers = todayUsers;
+    boolean visible = show && todayUsers != null && todayUsers.length > 0;
+    setShowOngoingSection(SECTION_BIRTHDAY, visible, true, false);
+  }
+
+  private void buildBirthday () {
+    int count = birthdayUsers != null ? birthdayUsers.length : 0;
+    if (count == 0 || !canBuildSection(SECTION_BIRTHDAY)) {
+      return;
+    }
+    String title, subtitle;
+    if (count == 1) {
+      title = birthdayTdlib.cache().userName(birthdayUsers[0].userId);
+      subtitle = Lang.getString(R.string.moex_birthdayBarSubtitle);
+    } else {
+      title = Lang.getString(R.string.moex_birthdaysTodayTitle, count);
+      String[] names = new String[count];
+      for (int i = 0; i < count; i++) {
+        names[i] = birthdayTdlib.cache().userFirstName(birthdayUsers[i].userId);
+      }
+      subtitle = android.text.TextUtils.join(Lang.getConcatSeparator(), names);
+    }
+    if (!StringUtils.isEmpty(subtitle)) {
+      subtitle = " — " + subtitle;
+    }
+    setText(title, subtitle, Screen.dp(67f + 50f));
+  }
+
+  private void drawOngoingBirthday (Canvas c, int playerTop, float rectWidth, int playerBottom) {
+    if (restoreRect && restorePixels > 0) {
+      c.drawRect(rectWidth, playerTop, width, playerBottom, Paints.fillingPaint(Theme.fillingColor()));
+    }
+    c.drawRect(0, playerTop, rectWidth, playerBottom, Paints.fillingPaint(ColorUtils.alphaColor(dropShadowAlpha, Theme.fillingColor())));
+
+    int cy = playerBottom - Size.getHeaderPlayerSize() / 2;
+    Drawables.draw(c, birthdayIcon, Screen.dp(28f) - birthdayIcon.getMinimumWidth() / 2f, cy - birthdayIcon.getMinimumHeight() / 2f, dropShadowAlpha == 1f ? Paints.getIconGrayPorterDuffPaint() : Paints.getPorterDuffPaint(ColorUtils.alphaColor(dropShadowAlpha, Theme.iconColor())));
+
+    drawCloseIcon(c, playerTop, rectWidth, playerBottom, true);
+    drawOngoingText(c, playerTop, rectWidth, playerBottom, Screen.dp(67f), null, 1f, 1f);
+  }
+
+  private void onBirthdayBarClick () {
+    performSoundFeedback();
+    if (birthdayTdlib == null || birthdayUsers == null || birthdayUsers.length == 0 || navigationController == null) {
+      return;
+    }
+    BaseActivity context = UI.getContext(navigationController.getContext());
+    birthdayTdlib.ui().openPrivateProfile(new TdlibContext(context, birthdayTdlib), birthdayUsers[0].userId, null);
+  }
+
+  private void onBirthdayClose () {
+    performSoundFeedback();
+    if (birthdayTdlib != null) {
+      birthdayTdlib.client().send(new TdApi.HideContactCloseBirthdays(), birthdayTdlib.okHandler());
+    }
+    setShowOngoingSection(SECTION_BIRTHDAY, false, false, false);
   }
 
   // Ongoing bar text
@@ -1099,6 +1168,8 @@ public class HeaderFilling extends Drawable implements TGLegacyAudioManager.Play
         buildCall();
       } else if ((ongoingSections & SECTION_AUDIO) != 0) {
         buildAudio();
+      } else if ((ongoingSections & SECTION_BIRTHDAY) != 0) {
+        buildBirthday();
       }
       if (isShowing || ongoingSections != 0) {
         invalidateOngoingBar();
@@ -1122,6 +1193,9 @@ public class HeaderFilling extends Drawable implements TGLegacyAudioManager.Play
         break;
       case SECTION_AUDIO:
         buildAudio();
+        break;
+      case SECTION_BIRTHDAY:
+        buildBirthday();
         break;
     }
   }
@@ -1282,6 +1356,14 @@ public class HeaderFilling extends Drawable implements TGLegacyAudioManager.Play
   @Override
   public void onClickAt (View view, float x, float y) {
     final boolean isAudio = BitwiseUtils.hasFlag(ongoingSections, SECTION_AUDIO);
+    if (!isAudio && !BitwiseUtils.hasFlag(ongoingSections, SECTION_CALL) && BitwiseUtils.hasFlag(ongoingSections, SECTION_BIRTHDAY)) {
+      if (x >= width - Screen.dp(52f)) {
+        onBirthdayClose();
+      } else {
+        onBirthdayBarClick();
+      }
+      return;
+    }
     int rIndex = getRightButtonIndex(width, x);
 
     int buttonSize = Screen.dp(52f);

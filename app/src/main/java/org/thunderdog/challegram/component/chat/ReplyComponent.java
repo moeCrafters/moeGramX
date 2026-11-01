@@ -420,9 +420,9 @@ public class ReplyComponent implements Client.ResultHandler, Destroyable {
       int paddingHorizontal = Screen.dp(12f);
       rectF.top = startY - padding;
       rectF.bottom = startY + mHeight + padding;
-      rectF.left = startX - paddingHorizontal;
+      rectF.left = startX - paddingHorizontal + Screen.dp(2);
       rectF.right = startX + width;
-      float mergeRadius = Theme.getBubbleMergeRadius();
+      float mergeRadius = Screen.dp(Theme.getBubbleMergeRadius());
       c.drawRoundRect(rectF, mergeRadius, mergeRadius, Paints.fillingPaint(parent.getBubbleMediaReplyBackgroundColor()));
     }
 
@@ -458,7 +458,7 @@ public class ReplyComponent implements Client.ResultHandler, Destroyable {
         receiver.drawPlaceholderContour(c, mediaPreview.contour);
       }
       if (mediaPreview != null && mediaPreview.needFireIcon) {
-        float radius = Theme.getBubbleMergeRadius();
+        float radius = Screen.dp(Theme.getBubbleMergeRadius());
         DrawAlgorithms.drawRoundRect(c, radius, receiver.getLeft(), receiver.getTop(), receiver.getRight(), receiver.getBottom(), Paints.fillingPaint(Theme.getColor(ColorId.spoilerMediaOverlay)));
         DrawAlgorithms.drawParticles(c, radius, receiver.getLeft(), receiver.getTop(), receiver.getRight(), receiver.getBottom(), 1f);
       }
@@ -474,6 +474,14 @@ public class ReplyComponent implements Client.ResultHandler, Destroyable {
 
       if (trimmedContent != null) {
         trimmedContent.draw(c, startX + textLeft, startX + textLeft + trimmedContent.getWidth(), 0, startY + Screen.dp(22f), null, 1f, textMediaReceiver);
+      }
+
+      if (parent.separateReplyFromContent()) {
+        if (rtl){
+          endX -= Screen.dp(2);
+        } else {
+          startX -= Screen.dp(2);
+        }
       }
 
       if (rtl) {

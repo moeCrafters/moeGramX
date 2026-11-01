@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="GeneralMoexSettings">Ogólne</string>
+  <string name="InterfaceMoexSettings">Interfejs</string>
+  <string name="ChatsMoexSettings">Czaty</string>
+  <string name="MoexLinks">Linki</string>
+  <string name="MoexChatText">Czat</string>
+  <string name="MoexChannelText">Aktualizacje</string>
+  <string name="MoexSourceText">Kod źródłowy</string>
+  <string name="MoexCategories">Kategorie</string>
+  <string name="MoexHideButtons">Panel wiadomości</string>
+  <string name="DisableCommandsButton">Ukryj przycisk komend</string>
+  <string name="DisableCameraButton">Ukryj przycisk aparatu</string>
+  <string name="DisableRecordButton">Ukryj przycisk nagrywania</string>
+  <string name="MoexChatsSettings">Opcje czatów</string>
+  <string name="MoexStickersCount">Naklejki</string>
+  <string name="DisableStickerTimestamp">Ukryj czas na naklejkach</string>
+  <string name="RoundedStickers">Zaokrąglone naklejki</string>
+  <string name="DrawerOptions">Ustawienia menu głównego</string>
+  <string name="hidePhoneNumber">Ukryj numer telefonu</string>
+  <string name="EnableFeatures">Włącz przełączniki funkcji</string>
+  <string name="FeaturesButtonInfo">Pokaż przycisk ustawień eksperymentalnych w menu głównym</string>
+  <string name="ExperimentalOptions">Ustawienia eksperymentalne</string>
+  <string name="PhoneHidden">Telefon ukryty</string>
+  <string name="showIdProfile">Pokaż ID użytkowników w profilach</string>
+  <string name="DisableSendAsButton">Ukryj przycisk \"Wyślij jako kanał\"</string>
+  <string name="MoexAbout">O aplikacji</string>
+  <string name="MoexAboutText" formatted="true">**moeGramX** jest słodkim, bogatym w funkcje i nieco eksperymentalnym klientem bazującym na oficjalnym kodzie źródłowym i TDLib. Zaproponuj funkcje, zgłoś problemy lub po prostu porozmawiaj na naszym czacie!</string>
+  <string name="HideCameraButtonInfo">Ta opcja przynosi przycisk aparatu z panelu wiadomości do menu załączania</string>
+  <string name="IncreaseRecents">Zwiększ liczbę ostatnich naklejek</string>
+  <string name="hideMessagesBadge">Ukryj plakietkę nieprzeczytanych wiadomości</string>
+  <string name="changeSizeLimit">Rozdzielczość zdjęć</string>
+  <string name="changeSizeLimitInfo">Zmień rozdzielczość wysyłanych zdjęć</string>
+  <string name="SizeLimitDesc">Ta funkcja jest niestabilna i może powodować drobne błędy interfejsu. Zmień na **1280px** i wyczyść pamięć podręczną za pomocą ustawień, jeśli wystąpią problemy wizualne z wysyłanymi zdjęciami.</string>
+  <string name="CopiedPhoto">Zdjęcie zostało skopiowane do schowka</string>
+  <string name="CopyPhoto">Kopiuj zdjęcie</string>
+  <string name="Repeat">Powtórz</string>
+  <string name="changeHeaderText">Tekst nagłówka</string>
+  <string name="RememberOptions">Zapamiętaj opcje wysyłania</string>
+  <string name="RememberOptionsInfo">Pamiętaj poprzednio wybrane opcje wysyłania i ustaw je jako domyślnie</string>
+</resources>

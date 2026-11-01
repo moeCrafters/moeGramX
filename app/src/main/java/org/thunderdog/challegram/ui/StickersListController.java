@@ -32,6 +32,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import org.drinkless.tdlib.Client;
 import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.R;
+import org.thunderdog.challegram.U;
 import org.thunderdog.challegram.component.attach.CustomItemAnimator;
 import org.thunderdog.challegram.component.emoji.MediaStickersAdapter;
 import org.thunderdog.challegram.component.sticker.StickerPreviewView;
@@ -58,6 +59,7 @@ import org.thunderdog.challegram.unsorted.Size;
 import org.thunderdog.challegram.util.StringList;
 import org.thunderdog.challegram.v.RtlGridLayoutManager;
 
+import java.io.File;
 import java.util.ArrayList;
 
 import me.vkryl.android.AnimatorUtils;
@@ -68,6 +70,8 @@ import me.vkryl.core.collection.LongList;
 import me.vkryl.core.lambda.CancellableRunnable;
 import me.vkryl.core.lambda.RunnableData;
 import tgx.td.Td;
+import moe.kirao.mgx.utils.ChatUtils;
+import moe.kirao.mgx.utils.SystemUtils;
 
 public class StickersListController extends ViewController<StickersListController.StickerSetProvider> implements
   Menu, StickerSmallView.StickerMovementCallback, Client.ResultHandler,
@@ -143,6 +147,10 @@ public class StickersListController extends ViewController<StickersListControlle
         ids.append(R.id.btn_share);
         strings.append(R.string.Share);
         icons.append(R.drawable.baseline_forward_24);
+
+        ids.append(R.id.btn_authorDetails);
+        strings.append(R.string.SetId);
+        icons.append(R.drawable.baseline_person_24);
       }
 
       ids.append(R.id.btn_copyLink);
@@ -150,12 +158,12 @@ public class StickersListController extends ViewController<StickersListControlle
       icons.append(R.drawable.baseline_link_24);
 
       if (stickerSetInfoToLoad != null) {
-        if (getArguments().canArchiveStickerSet(stickerSetInfoToLoad != null ? stickerSetInfoToLoad.id : -1)) {
+        if (getArguments().canArchiveStickerSet(stickerSetInfoToLoad.id)) {
           ids.append(R.id.btn_archive);
           strings.append(R.string.StickersHide);
           icons.append(R.drawable.baseline_archive_24);
         }
-        if (getArguments().canRemoveStickerSet(stickerSetInfoToLoad != null ? stickerSetInfoToLoad.id : -1)) {
+        if (getArguments().canRemoveStickerSet(stickerSetInfoToLoad.id)) {
           ids.append(R.id.btn_delete);
           strings.append(R.string.DeleteArchivedPack);
           icons.append(R.drawable.baseline_delete_24);
@@ -193,6 +201,55 @@ public class StickersListController extends ViewController<StickersListControlle
   public void onMoreItemPressed (int id) {
     if (id == R.id.btn_share) {
       tdlib.ui().shareStickerSetUrl(this, stickerSetInfoToLoad);
+    } else if (id == R.id.btn_authorDetails) {
+      if (stickerSetInfoToLoad != null) {
+        long authorId = ChatUtils.extractAuthorId(stickerSetInfoToLoad.id);
+
+        RunnableData<ChatUtils.AuthorInfo> showAuthorMenu = authorInfo -> {
+          String displayText = authorInfo.displayText();
+          String username = authorInfo.username();
+
+          RunnableData<Boolean> showMenu = canOpen -> {
+            IntList ids = new IntList(2);
+            StringList strings = new StringList(2);
+            IntList icons = new IntList(2);
+
+            ids.append(R.id.btn_copyText);
+            strings.append(R.string.Copy);
+            icons.append(R.drawable.baseline_content_copy_24);
+
+            if (canOpen) {
+              ids.append(R.id.btn_openChat);
+              strings.append(R.string.Open);
+              icons.append(R.drawable.baseline_person_24);
+            }
+
+            showOptions(displayText, ids.get(), strings.get(), null, icons.get(), (itemView, optionId) -> {
+              if (optionId == R.id.btn_copyText) {
+                UI.copyText(displayText, R.string.CopiedText);
+              } else if (optionId == R.id.btn_openChat) {
+                tdlib.ui().openUrl(this, tdlib.tMeUrl(username), null);
+              }
+              return true;
+            });
+          };
+
+          if (username != null) {
+            tdlib.client().send(new TdApi.SearchPublicChat(username), result ->
+              runOnUiThreadOptional(() -> showMenu.runWithData(result.getConstructor() == TdApi.Chat.CONSTRUCTOR))
+            );
+          } else {
+            showMenu.runWithData(false);
+          }
+        };
+
+        ChatUtils.AuthorInfo localInfo = ChatUtils.resolveUserLocal(tdlib, authorId);
+        if (localInfo != null) {
+          showAuthorMenu.runWithData(localInfo);
+        } else {
+          ChatUtils.processAuthorRequest(tdlib, authorId, showAuthorMenu);
+        }
+      }
     } else if (id == R.id.btn_copyLink) {
       if (stickerSetInfoToLoad != null) {
         UI.copyText(tdlib.tMeStickerSetUrl(stickerSetInfoToLoad), R.string.CopiedLink);
@@ -852,6 +909,7 @@ public class StickersListController extends ViewController<StickersListControlle
     final boolean canWriteMessages = c instanceof MessagesController && ((MessagesController) c).canWriteMessages();
 
     final boolean needViewPackButton = sticker.needViewPackButton();
+    final boolean canBeSaved = sticker.isFullLoaded();
     final boolean isEmoji = sticker.isCustomEmoji();
 
     final @StringRes int sendText = isEmoji ? (canWriteMessages ? R.string.PasteCustomEmoji : R.string.ShareCustomEmoji) : R.string.SendSticker;
@@ -862,6 +920,11 @@ public class StickersListController extends ViewController<StickersListControlle
     if (needViewPackButton) {
       menuItems.add(new StickerPreviewView.MenuItem(StickerPreviewView.MenuItem.MENU_ITEM_TEXT,
         Lang.uppercase(Lang.getString(R.string.ViewPackPreview)), R.id.btn_view, ColorId.textNeutral));
+    }
+
+    if (canBeSaved) {
+      menuItems.add(new StickerPreviewView.MenuItem(StickerPreviewView.MenuItem.MENU_ITEM_TEXT,
+        Lang.getString(R.string.Save).toUpperCase(), R.id.btn_saveSticker, ColorId.textNeutral));
     }
   }
 
@@ -881,6 +944,14 @@ public class StickersListController extends ViewController<StickersListControlle
         tdlib.ui().showStickerSet(context, sticker.getStickerSetId(), null);
         stickerSmallView.closePreviewIfNeeded();
       }
+    } else if (viewId == R.id.btn_saveSticker) {
+      String mime = U.resolveMimeType(sticker.getSticker().sticker.local.path);
+      if (mime.equals("application/x-tgsticker")) {
+        TD.saveToDownloads(new File(sticker.getSticker().sticker.local.path), mime);
+      } else {
+        SystemUtils.saveFileToGallery(context(), sticker.getSticker().sticker.local.path);
+      }
+      stickerSmallView.closePreviewIfNeeded();
     }
   }
 }

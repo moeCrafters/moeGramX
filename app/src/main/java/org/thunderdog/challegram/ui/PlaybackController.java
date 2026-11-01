@@ -34,6 +34,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -128,10 +129,7 @@ public class PlaybackController extends ViewController<Void> implements Menu, Mo
         out.clear();
         return -1;
       }
-      if (TGPlayerController.compareTracks(currentTrack, track)) {
-        if (trackIndex != -1) {
-          throw new IllegalStateException();
-        }
+      if (trackIndex == -1 && TGPlayerController.compareTracks(currentTrack, track)) {
         trackIndex = out.size() - 1;
       }
       InlineResultCommon common = (InlineResultCommon) result;
@@ -247,22 +245,19 @@ public class PlaybackController extends ViewController<Void> implements Menu, Mo
     recyclerView.setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     recyclerView.setAdapter(adapter);
     recyclerView.setItemAnimator(new CustomItemAnimator(AnimatorUtils.DECELERATE_INTERPOLATOR, 180l));
-    recyclerView.setAlpha(isTrackListLess() ? 0f : 1f);
     frameLayout.addView(recyclerView);
 
     final ItemTouchHelper[] helper = new ItemTouchHelper[1];
     helper[0] = new ItemTouchHelper(new ItemTouchHelper.Callback() {
       @Override
       public int getMovementFlags (RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder) {
-        if (isTrackListLess()) {
-          return 0;
-        }
         int position = viewHolder.getBindingAdapterPosition();
         int headerItemCount = 1;
         if (position == -1 || position < headerItemCount || viewHolder.getItemViewType() != ListItem.TYPE_CUSTOM_INLINE) {
           return 0;
         }
-        return makeMovementFlags(ItemTouchHelper.UP | ItemTouchHelper.DOWN, ItemTouchHelper.LEFT);
+        int dragFlags = tdlib.context().player().isPlaylistReorderable() ? (ItemTouchHelper.UP | ItemTouchHelper.DOWN) : 0;
+        return makeMovementFlags(dragFlags, ItemTouchHelper.LEFT);
       }
 
       @Override
@@ -280,6 +275,35 @@ public class PlaybackController extends ViewController<Void> implements Menu, Mo
         super.onMoved(recyclerView, viewHolder, fromPos, target, toPos, x, y);
         viewHolder.itemView.invalidate();
         target.itemView.invalidate();
+      }
+
+      @Override
+      public void onSelectedChanged (@Nullable RecyclerView.ViewHolder viewHolder, int actionState) {
+        super.onSelectedChanged(viewHolder, actionState);
+        if (actionState == ItemTouchHelper.ACTION_STATE_DRAG && viewHolder != null) {
+          Object tag = viewHolder.itemView.getTag();
+          if (tag instanceof ListItem) {
+            Object data = ((ListItem) tag).getData();
+            if (data instanceof InlineResultCommon) {
+              draggedTrack = ((InlineResultCommon) data).getMessage();
+              draggedTrackStartPosition = viewHolder.getBindingAdapterPosition();
+            }
+          }
+        }
+      }
+
+      @Override
+      public void clearView (@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder) {
+        super.clearView(recyclerView, viewHolder);
+        TdApi.Message track = draggedTrack;
+        int startPosition = draggedTrackStartPosition;
+        draggedTrack = null;
+        draggedTrackStartPosition = -1;
+        int endPosition = viewHolder.getBindingAdapterPosition();
+        if (track != null && startPosition != RecyclerView.NO_POSITION &&
+          endPosition != RecyclerView.NO_POSITION && endPosition != startPosition) {
+          tdlib.context().player().commitTrackMove(track);
+        }
       }
 
       /*@Override
@@ -513,8 +537,6 @@ public class PlaybackController extends ViewController<Void> implements Menu, Mo
 
   // item
 
-  private static final int MINIMUM_TRACKS_COUNT = 1;
-
   private int indexOfCurrentTrack () {
     if (currentItem == null) {
       return -1;
@@ -534,13 +556,7 @@ public class PlaybackController extends ViewController<Void> implements Menu, Mo
     return tracks.size() - 2; // top view + bottom progress
   }
 
-  private boolean isTrackListLess () {
-    return getTrackCount() <= MINIMUM_TRACKS_COUNT;
-  }
-
   private void onTrackListSizeChanged () {
-    final int count = getTrackCount();
-    recyclerView.setAlpha(count <= MINIMUM_TRACKS_COUNT ? 0f : 1f);
     adapter.updateValuedSettingById(R.id.btn_info);
   }
 
@@ -941,13 +957,37 @@ public class PlaybackController extends ViewController<Void> implements Menu, Mo
   }
 
   private void removeTrack (final InlineResultCommon common) {
-    if (currentItem != null) {
-      showOptions(Lang.getStringBold(R.string.PlayListRemoveTrack, common.getTrackTitle() + " – " + common.getTrackSubtitle()), new int[]{R.id.btn_delete, R.id.btn_cancel}, new String[]{Lang.getString(R.string.PlayListRemove), Lang.getString(R.string.Cancel)}, new int[] {OptionColor.RED, OptionColor.NORMAL}, new int[] {R.drawable.baseline_remove_circle_24, R.drawable.baseline_cancel_24}, (itemView, id) -> {
-        if (id == R.id.btn_delete) {
-          tdlib.context().player().removeTrack(common.getMessage(), true);
-        }
-        return true;
-      });
+    if (currentItem == null) {
+      return;
+    }
+    final TdApi.Message message = common.getMessage();
+    final boolean isProfilePlaylistEntry = message.id == 0 && message.chatId == playListChatId && tdlib.isSelfChat(playListChatId);
+    if (isProfilePlaylistEntry) {
+      showOptions(Lang.getStringBold(R.string.RemoveProfileAudioConfirm, common.getTrackTitle() + " – " + common.getTrackSubtitle()),
+        new int[] {R.id.btn_removeProfileAudio, R.id.btn_cancel},
+        new String[] {Lang.getString(R.string.PlayListRemove), Lang.getString(R.string.Cancel)},
+        new int[] {OptionColor.RED, OptionColor.NORMAL},
+        new int[] {R.drawable.baseline_remove_circle_24, R.drawable.baseline_cancel_24},
+        (itemView, id) -> {
+          if (id == R.id.btn_removeProfileAudio) {
+            tdlib.send(new TdApi.RemoveProfileAudio(TD.getFileId(message)), ok -> runOnUiThreadOptional(() -> {
+              tdlib.context().player().removeTrack(message, true);
+            }), UI::showError);
+          }
+          return true;
+        });
+    } else {
+      showOptions(Lang.getStringBold(R.string.PlayListRemoveTrack, common.getTrackTitle() + " – " + common.getTrackSubtitle()),
+        new int[] {R.id.btn_delete, R.id.btn_cancel},
+        new String[] {Lang.getString(R.string.PlayListRemove), Lang.getString(R.string.Cancel)},
+        new int[] {OptionColor.RED, OptionColor.NORMAL},
+        new int[] {R.drawable.baseline_remove_circle_24, R.drawable.baseline_cancel_24},
+        (itemView, id) -> {
+          if (id == R.id.btn_delete) {
+            tdlib.context().player().removeTrack(message, true);
+          }
+          return true;
+        });
     }
   }
 
@@ -968,8 +1008,11 @@ public class PlaybackController extends ViewController<Void> implements Menu, Mo
     }
     if (dispatchUpdate) {
       ignoreMoveUpdate = true;
-      tdlib.context().player().moveTrack(fromPosition, toPosition);
-      ignoreMoveUpdate = false;
+      try {
+        tdlib.context().player().moveTrack(fromPosition, toPosition);
+      } finally {
+        ignoreMoveUpdate = false;
+      }
     }
     if ((playFlags & TGPlayerController.PLAYLIST_FLAG_REVERSE) != 0) {
       int count = getTrackCount();
@@ -981,6 +1024,8 @@ public class PlaybackController extends ViewController<Void> implements Menu, Mo
   }
 
   private boolean ignoreMoveUpdate;
+  private @Nullable TdApi.Message draggedTrack;
+  private int draggedTrackStartPosition = -1;
 
   @Override
   public void onTrackListItemMoved (Tdlib tdlib, TdApi.Message track, int fromPosition, int toPosition) {
@@ -2296,8 +2341,8 @@ public class PlaybackController extends ViewController<Void> implements Menu, Mo
   @Override
   public void onMenuItemPressed (int id, View view) {
     if (id == R.id.menu_btn_more) {
-      IntList ids = new IntList(3);
-      StringList strings = new StringList(3);
+      IntList ids = new IntList(4);
+      StringList strings = new StringList(4);
 
       TdApi.Message message = currentItem.getMessage();
 
@@ -2311,8 +2356,19 @@ public class PlaybackController extends ViewController<Void> implements Menu, Mo
         ids.append(R.id.btn_share);
         strings.append(R.string.Share);
 
-        ids.append(R.id.btn_showInChat);
-        strings.append(R.string.ShowInChat);
+        if (message.id != 0) {
+          ids.append(R.id.btn_showInChat);
+          strings.append(R.string.ShowInChat);
+        }
+      }
+
+      boolean isFakeProfileAudio = message.id == 0 && message.chatId == playListChatId && tdlib.isSelfChat(playListChatId);
+      if (isFakeProfileAudio) {
+        ids.append(R.id.btn_removeProfileAudio);
+        strings.append(R.string.RemoveFromProfile);
+      } else if (message.id != 0 || !tdlib.isSelfChat(playListChatId)) {
+        ids.append(R.id.btn_pinAudioProfile);
+        strings.append(R.string.AddToProfile);
       }
 
       if (tracks.size() > 5 && isScrollUnlocked) {
@@ -2332,8 +2388,14 @@ public class PlaybackController extends ViewController<Void> implements Menu, Mo
   @Override
   public void onMoreItemPressed (int id) {
     if (id == R.id.btn_share) {
+      TdApi.Message message = currentItem.getMessage();
       ShareController c = new ShareController(context, tdlib);
-      c.setArguments(new ShareController.Args(currentItem.getMessage()).setAllowCopyLink(true));
+      if (message.id != 0) {
+        c.setArguments(new ShareController.Args(message).setAllowCopyLink(true));
+      } else {
+        TdApi.Audio audio = ((TdApi.MessageAudio) message.content).audio;
+        c.setArguments(new ShareController.Args(new TdApi.InputMessageAudio(new TdApi.InputAudio(new TdApi.InputFileRemote(audio.audio.remote.id), null, audio.duration, audio.title, audio.performer), null)));
+      }
       c.show();
     } else if (id == R.id.btn_showInPlaylist) {
       highlightCurrentItem();
@@ -2352,6 +2414,48 @@ public class PlaybackController extends ViewController<Void> implements Menu, Mo
       if (downloadedFile != null) {
         TD.saveFile(context, downloadedFile);
       }
+    } else if (id == R.id.btn_removeProfileAudio) {
+      final InlineResultCommon expected = currentItem;
+      final TdApi.Message message = expected.getMessage();
+      final boolean isProfilePlaylistEntry = message.id == 0 && message.chatId == playListChatId && tdlib.isSelfChat(playListChatId);
+      CharSequence title = Lang.getStringBold(
+        R.string.RemoveProfileAudioConfirm,
+        expected.getTrackTitle() + " – " + expected.getTrackSubtitle()
+      );
+      showOptions(title,
+        new int[] {R.id.btn_removeProfileAudio, R.id.btn_cancel},
+        new String[] {Lang.getString(R.string.PlayListRemove), Lang.getString(R.string.Cancel)},
+        new int[] {OptionColor.RED, OptionColor.NORMAL},
+        new int[] {R.drawable.baseline_remove_circle_24, R.drawable.baseline_cancel_24},
+        (itemView, optionId) -> {
+          if (optionId == R.id.btn_removeProfileAudio) {
+            tdlib.send(new TdApi.RemoveProfileAudio(TD.getFileId(message)), ok -> runOnUiThreadOptional(() -> {
+              if (isProfilePlaylistEntry) {
+                TGPlayerController player = tdlib.context().player();
+                if (getTrackCount() <= 1 &&
+                  player.getPlayState(tdlib, message) != TGPlayerController.STATE_NONE) {
+                  player.stopPlayback(true);
+                } else {
+                  player.removeTrack(message, true);
+                }
+              } else {
+                UI.showToast(R.string.AudioUnpinned, Toast.LENGTH_SHORT);
+              }
+            }), UI::showError);
+          }
+          return true;
+        });
+    } else if (id == R.id.btn_pinAudioProfile) {
+      final TdApi.Audio audio = ((TdApi.MessageAudio) currentItem.getMessage().content).audio;
+      final int fileId = audio.audio.id;
+      tdlib.send(new TdApi.IsProfileAudio(fileId), (isPinned, isPinnedError) -> runOnUiThreadOptional(() -> {
+        if (isPinnedError == null) {
+          UI.showToast(R.string.AudioAlreadyPinned, Toast.LENGTH_SHORT);
+        } else {
+          tdlib.send(new TdApi.AddProfileAudio(new TdApi.InputAudio(new TdApi.InputFileId(fileId), null, audio.duration, audio.title, audio.performer)), addedOk ->
+            UI.showToast(R.string.AudioPinned, Toast.LENGTH_SHORT), UI::showError);
+        }
+      }));
     }
   }
 }

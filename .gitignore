@@ -16,6 +16,7 @@ obj
 
 /captures
 /local.properties
+keystore.properties
 
 /tests/*/checks
 

@@ -50,6 +50,7 @@ public class TGUser implements UserProvider {
   private static final int FLAG_SHOW_PHONE_NUMBER = 0x40;
   private static final int FLAG_CUSTOM_STATUS_TEXT = 0x80;
   private static final int FLAG_CHAT_TITLE_AS_USER_NAME = 0x160;
+  private static final int FLAG_SHOW_MUTUAL = 0x200;
 
   private final Tdlib tdlib;
   private final long userId;
@@ -131,6 +132,11 @@ public class TGUser implements UserProvider {
   public void setNoBotState () {
     flags |= FLAG_NO_BOT_STATE;
     updateStatus();
+  }
+
+  public void setShowMutual () {
+    flags |= FLAG_SHOW_MUTUAL;
+    updateName();
   }
 
   public void setBoundList (@Nullable ArrayList<TGUser> boundList) {
@@ -292,6 +298,9 @@ public class TGUser implements UserProvider {
       nameText = TD.getUserName(userId, user);
     } else {
       nameText = tdlib.chatTitle(chatId);
+    }
+    if (BitwiseUtils.hasFlag(flags, FLAG_SHOW_MUTUAL) && user != null && user.isMutualContact) {
+      nameText = "⇄ " + nameText;
     }
     if (!StringUtils.equalsOrBothEmpty(this.nameText, nameText)) {
       this.nameText = nameText;
