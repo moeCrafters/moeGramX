@@ -498,13 +498,13 @@ class TextSelectionOverlay implements FactorAnimator.Target {
     return true;
   }
 
-  private void updateHandleBounds (RectF handle, RectF bounds, Drawable drawable, boolean left) {
+  private void updateHandleBounds (RectF handle, RectF bounds, Drawable drawable, boolean isLeft) {
     if (drawable == null || handle.isEmpty()) {
       bounds.setEmpty();
       return;
     }
     int width = drawable.getIntrinsicWidth();
-    int hotspotX = left ? width * 3 / 4 : width / 4;
+    int hotspotX = isLeft ? width * 3 / 4 : width / 4;
     float left = handle.left - hotspotX;
     bounds.set(left, handle.bottom, left + width, handle.bottom + drawable.getIntrinsicHeight());
   }
