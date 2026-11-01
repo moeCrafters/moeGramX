@@ -3272,12 +3272,28 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterTextPart, List
             break;
           }
           offset = snapSelectionOffset(offset, draggingHandle == HANDLE_END);
-          if (draggingHandle == HANDLE_START && offset < end && offset != start) {
-            start = offset;
-            updateGeometry();
-          } else if (draggingHandle == HANDLE_END && offset > start && offset != end) {
-            end = offset;
-            updateGeometry();
+          if (draggingHandle == HANDLE_START) {
+            if (offset > end) {
+              start = end;
+              end = offset;
+              draggingHandle = HANDLE_END;
+              updateGeometry();
+              dragOffsetX = x - endHandle.left;
+            } else if (offset < end && offset != start) {
+              start = offset;
+              updateGeometry();
+            }
+          } else if (draggingHandle == HANDLE_END) {
+            if (offset < start) {
+              end = start;
+              start = offset;
+              draggingHandle = HANDLE_START;
+              updateGeometry();
+              dragOffsetX = x - startHandle.left;
+            } else if (offset > start && offset != end) {
+              end = offset;
+              updateGeometry();
+            }
           }
           break;
         }
