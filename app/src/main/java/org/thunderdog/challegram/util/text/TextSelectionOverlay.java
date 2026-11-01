@@ -391,8 +391,8 @@ class TextSelectionOverlay implements FactorAnimator.Target {
       @Override
       public boolean onCreateActionMode (ActionMode mode, Menu menu) {
         menu.add(Menu.NONE, android.R.id.copy, 0, android.R.string.copy).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
-        menu.add(Menu.NONE, android.R.id.selectAll, 1, android.R.string.selectAll).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
-        menu.add(Menu.NONE, android.R.id.shareText, 2, Lang.getString(R.string.Share)).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+        menu.add(Menu.NONE, R.id.btn_quote, 1, Lang.getString(R.string.TextFormatQuote)).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+        menu.add(Menu.NONE, android.R.id.selectAll, 2, android.R.string.selectAll).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
         return canSelect();
       }
 
@@ -400,6 +400,11 @@ class TextSelectionOverlay implements FactorAnimator.Target {
       public boolean onPrepareActionMode (ActionMode mode, Menu menu) {
         boolean canSelectAll = !selection.isAllSelected();
         menu.findItem(android.R.id.selectAll).setVisible(canSelectAll).setEnabled(canSelectAll);
+        MenuItem quoteItem = menu.findItem(R.id.btn_quote);
+        if (quoteItem != null) {
+          boolean canQuote = delegate != null && delegate.canQuote();
+          quoteItem.setVisible(canQuote).setEnabled(canQuote);
+        }
         return true;
       }
 
@@ -484,14 +489,16 @@ class TextSelectionOverlay implements FactorAnimator.Target {
       }
       updateHandles();
       actionMode.invalidate();
-    } else if (id == android.R.id.copy || id == android.R.id.shareText) {
+    } else if (id == R.id.btn_quote) {
       String value = selection.getSelectedText();
       text.dismissSelection(true);
-      if (id == android.R.id.copy) {
-        UI.copyText(value, R.string.CopiedText);
-      } else {
-        Intents.shareText(value);
+      if (delegate != null) {
+        delegate.onQuoteRequested(value);
       }
+    } else if (id == android.R.id.copy) {
+      String value = selection.getSelectedText();
+      text.dismissSelection(true);
+      UI.copyText(value, R.string.CopiedText);
     } else {
       return false;
     }

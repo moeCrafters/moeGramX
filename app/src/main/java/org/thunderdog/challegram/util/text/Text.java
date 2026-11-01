@@ -3106,8 +3106,10 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterTextPart, List
 
   public interface SelectionDelegate {
     boolean canSelect ();
+    default boolean canQuote () { return false; }
     default float getOffsetX () { return 0f; }
     default float getOffsetY () { return 0f; }
+    default void onQuoteRequested (String quote) { }
   }
 
   private @Nullable Selection selection;

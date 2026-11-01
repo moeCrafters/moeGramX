@@ -16,8 +16,11 @@ package org.thunderdog.challegram.component.chat;
 
 import android.view.View;
 
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.data.TGMessage;
+import org.thunderdog.challegram.ui.MessagesController;
 import org.thunderdog.challegram.util.text.Text;
+import tgx.td.data.MessageWithProperties;
 
 public class MessageTextSelection implements Text.SelectionDelegate {
   private final View anchor;
@@ -36,6 +39,33 @@ public class MessageTextSelection implements Text.SelectionDelegate {
 
   public boolean dismiss (boolean animated) {
     return text.dismissSelection(animated);
+  }
+
+  @Override
+  public boolean canQuote () {
+    // TODO: if unable to quote in the current chat, open "Quote in another chat" screen instead
+    MessagesController c = message.messagesController();
+    if (c == null || message.isDestroyed() || !c.canWriteMessagesOrWaitingForReply()) {
+      return false;
+    }
+    if (c.isChannel()) {
+      return c.tdlib().isAdminOrOwner(c.getChatId()) && c.tdlib().canSendBasicMessage(c.getChatId());
+    }
+    return c.tdlib().canSendBasicMessage(c.getChatId());
+  }
+
+  @Override
+  public void onQuoteRequested (String quote) {
+    MessagesController c = message.messagesController();
+    if (c == null || !canQuote()) {
+      return;
+    }
+    TdApi.FormattedText formattedText = new TdApi.FormattedText(quote, null);
+    TdApi.InputTextQuote inputQuote = new TdApi.InputTextQuote(formattedText, 0);
+    c.showReply(
+      new MessageWithProperties(message.getMessage(), message.lastMessageProperties()),
+      inputQuote, 0, "", true, true
+    );
   }
 
   @Override
