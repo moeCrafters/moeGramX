@@ -3453,6 +3453,43 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterTextPart, List
     }
   }
 
+  public boolean getRangeRects (int start, int end, List<RectF> outRects) {
+    if (parts == null || isDestroyed() || originalText.isEmpty()) {
+      return false;
+    }
+    start = Math.max(0, Math.min(start, originalText.length()));
+    end = Math.max(0, Math.min(end, originalText.length()));
+    if (start >= end) {
+      return false;
+    }
+    boolean found = false;
+    for (int i = 0; i < parts.size(); i++) {
+      TextPart part = parts.get(i);
+      if (part.getLine() != originalText) {
+        continue;
+      }
+      int from = Math.max(start, part.getStart());
+      int to = Math.min(end, part.getEnd());
+      if (from >= to) {
+        continue;
+      }
+      float left = getSelectionPartX(part);
+      float top = part.getY() + getPartVerticalOffset(part) + getTextPaint(part.getEntity()).baselineShift;
+      float bottom = top + getPartHeight(part);
+      float fromX = getSelectionAdvance(part, from);
+      float toX = getSelectionAdvance(part, to);
+      if (BiDiUtils.isRtl(part.getBidiEntity())) {
+        fromX = part.getWidth() - fromX;
+        toX = part.getWidth() - toX;
+      }
+      fromX += left;
+      toX += left;
+      outRects.add(new RectF(Math.min(fromX, toX), top, Math.max(fromX, toX), bottom));
+      found = true;
+    }
+    return found;
+  }
+
   // Sharing
 
   public boolean performLongPress (final View view) {

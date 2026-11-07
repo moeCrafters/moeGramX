@@ -1814,7 +1814,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
     if (selectionFactor != 0f) {
       drawSelection(view, c);
     }
-    if (highlightFactor != 0f) {
+    if (highlightFactor != 0f && quoteHighlightRects == null) {
       drawHighlight(view, c);
     }
   }
@@ -2000,6 +2000,9 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
     if (useBubbles && !needViewGroup()) {
       drawBackground(view, c);
     }
+    if (useBubbles && quoteHighlightRects != null) {
+      drawQuoteHighlight(view, c, false);
+    }
 
     final boolean savedTranslation = translation != 0f;
     if (savedTranslation) {
@@ -2010,6 +2013,9 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
     // selection and highlight background
     if (!useBubbles && !needViewGroup()) {
       drawBackground(view, c);
+    }
+    if (!useBubbles && quoteHighlightRects != null) {
+      drawQuoteHighlight(view, c, false);
     }
 
     final int contentOffset = getSelectableContentOffset(selectableFactor);
@@ -2476,6 +2482,9 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
 
     startSetReactionAnimationIfReady();
     highlightUnreadReactionsIfNeeded();
+    if (useBubbles && quoteHighlightRects != null) {
+      drawQuoteHighlight(view, c, true);
+    }
     if (isHiddenFactor > 0f) {
       drawHiddenMessage(view, c, isHiddenFactor);
     }
@@ -2968,12 +2977,20 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
                 if (replyToMessage.chatId == 0 || replyToMessage.messageId == 0) {
                   buildContentHint(view, getReplyLocationProvider(), false).show(tdlib, Lang.getString(R.string.MessageReplyPrivate));
                 } else {
-                  tdlib.ui().openMessage(controller(), replyToMessage.chatId, new MessageId(replyToMessage), openParameters());
+                  TdApi.InputTextQuote quote = null;
+                  if (!Td.isEmpty(replyToMessage.quote)) {
+                    quote = new TdApi.InputTextQuote(replyToMessage.quote.text, replyToMessage.quote.position);
+                  }
+                  tdlib.ui().openMessage(controller(), replyToMessage.chatId, new MessageId(replyToMessage), openParameters(), quote);
                 }
               } else if (isScheduled()) {
                 tdlib.ui().openMessage(controller(), replyToMessage.chatId, new MessageId(replyToMessage), openParameters());
               } else {
-                highlightOtherMessage(new MessageId(replyToMessage));
+                TdApi.InputTextQuote quote = null;
+                if (!Td.isEmpty(replyToMessage.quote)) {
+                  quote = new TdApi.InputTextQuote(replyToMessage.quote.text, replyToMessage.quote.position);
+                }
+                highlightOtherMessage(new MessageId(replyToMessage), quote);
               }
             }
           }
@@ -2990,6 +3007,10 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
 
   protected final void highlightOtherMessage (MessageId messageId) {
     manager.controller().highlightMessage(messageId, toMessageId());
+  }
+
+  protected final void highlightOtherMessage (MessageId messageId, @Nullable TdApi.InputTextQuote quote) {
+    manager.controller().highlightMessage(messageId, toMessageId(), quote);
   }
 
   protected final void highlightOtherMessage (long otherMessageId) {
@@ -6678,6 +6699,14 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
           setHighlight(1f - factor);
           break;
         }
+        case ANIMATOR_QUOTE_SHRINK: {
+          setQuoteShrinkFactor(factor);
+          break;
+        }
+        case ANIMATOR_QUOTE_REVOKE: {
+          setQuoteRevokeFactor(factor);
+          break;
+        }
         case ANIMATOR_DISMISS: {
           setDismiss(factor);
           break;
@@ -6759,6 +6788,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
   }
 
   public void highlight (boolean revoke) {
+    cancelQuoteHighlight(true);
     cancelHighlightRevoke();
     setHighlight(1f);
     if (revoke) {
@@ -6770,6 +6800,187 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
     if (this.highlightFactor != highlight) {
       this.highlightFactor = highlight;
       invalidateParentOrSelf(false);
+    }
+  }
+
+  // Quote highlight
+
+  private static final long QUOTE_HIGHLIGHT_SHRINK_DELAY = 500L;
+  private static final long QUOTE_HIGHLIGHT_SHRINK_DURATION = 250L;
+  private static final long QUOTE_HIGHLIGHT_LIFETIME = 2500L;
+  private static final long QUOTE_HIGHLIGHT_FADE_DURATION = 400L;
+
+  private static final int ANIMATOR_QUOTE_SHRINK = -8;
+  private static final int ANIMATOR_QUOTE_REVOKE = -9;
+
+  private @Nullable List<RectF> quoteHighlightRects;
+  private @Nullable String quoteHighlightText;
+  private float quoteShrinkFactor;
+  private float quoteRevokeFactor;
+  private boolean quoteHighlightNeedsRefresh;
+  private @Nullable FactorAnimator quoteShrinkAnimator;
+  private @Nullable FactorAnimator quoteRevokeAnimator;
+  private final Path quoteHighlightPath = new Path();
+
+  private final Runnable quoteHighlightFadeRunnable = () -> {
+    if (quoteHighlightRects == null) {
+      return;
+    }
+    if (quoteRevokeAnimator == null) {
+      quoteRevokeAnimator = new FactorAnimator(ANIMATOR_QUOTE_REVOKE, this, AnimatorUtils.DECELERATE_INTERPOLATOR, QUOTE_HIGHLIGHT_FADE_DURATION, 0f);
+    } else {
+      quoteRevokeAnimator.forceFactor(0f);
+    }
+    quoteRevokeAnimator.animateTo(1f);
+  };
+
+  public boolean startQuoteHighlight (String quote) {
+    cancelQuoteHighlight(false);
+    if (StringUtils.isEmpty(quote)) {
+      return false;
+    }
+    List<RectF> rects = findQuoteHighlightRects(quote);
+    if (rects == null) {
+      return false;
+    }
+    quoteHighlightText = quote;
+    quoteHighlightRects = rects;
+    cancelHighlightRevoke();
+    quoteHighlightNeedsRefresh = true;
+    tdlib().ui().post(() -> {
+      if (quoteHighlightRects == null || !quote.equals(quoteHighlightText)) {
+        return;
+      }
+      quoteShrinkAnimator = new FactorAnimator(ANIMATOR_QUOTE_SHRINK, this, AnimatorUtils.DECELERATE_INTERPOLATOR, QUOTE_HIGHLIGHT_SHRINK_DURATION, 0f);
+      quoteShrinkAnimator.setStartDelay(QUOTE_HIGHLIGHT_SHRINK_DELAY);
+      quoteShrinkAnimator.animateTo(1f);
+      tdlib().ui().postDelayed(quoteHighlightFadeRunnable, QUOTE_HIGHLIGHT_LIFETIME);
+    });
+    return true;
+  }
+
+  private void cancelQuoteHighlight (boolean restoreHighlight) {
+    if (quoteShrinkAnimator != null) {
+      quoteShrinkAnimator.cancel();
+      quoteShrinkAnimator = null;
+    }
+    if (quoteRevokeAnimator != null) {
+      quoteRevokeAnimator.cancel();
+      quoteRevokeAnimator = null;
+    }
+    tdlib().ui().removeCallbacks(quoteHighlightFadeRunnable);
+    quoteHighlightText = null;
+    quoteHighlightRects = null;
+    quoteShrinkFactor = 0f;
+    quoteRevokeFactor = 0f;
+    quoteHighlightNeedsRefresh = false;
+    if (restoreHighlight) {
+      setHighlight(0f);
+    }
+  }
+
+  private @Nullable List<RectF> findQuoteHighlightRects (String quote) {
+    Text text = getTextSelectionLayout();
+    if (text == null || StringUtils.isEmpty(quote)) {
+      return null;
+    }
+    String haystack = text.getText();
+    if (haystack == null) {
+      return null;
+    }
+    int index = haystack.indexOf(quote);
+    if (index == -1) {
+      return null;
+    }
+    List<RectF> localRects = new ArrayList<>();
+    if (!text.getRangeRects(index, index + quote.length(), localRects) || localRects.isEmpty()) {
+      return null;
+    }
+    Rect textBounds = new Rect();
+    text.toRect(textBounds);
+    float offsetX = textBounds.left + getTextSelectionOffsetX();
+    float offsetY = textBounds.top;
+    List<RectF> rects = new ArrayList<>(localRects.size());
+    for (RectF localRect : localRects) {
+      localRect.offset(offsetX, offsetY);
+      rects.add(localRect);
+    }
+    return rects;
+  }
+
+  public @Nullable Rect refreshQuoteHighlight () {
+    if (quoteHighlightText == null) {
+      return null;
+    }
+    List<RectF> rects = findQuoteHighlightRects(quoteHighlightText);
+    if (rects == null || rects.isEmpty()) {
+      return null;
+    }
+    quoteHighlightRects = rects;
+    return getQuoteHighlightBounds();
+  }
+
+  public @Nullable Rect getQuoteHighlightBounds () {
+    if (quoteHighlightRects == null || quoteHighlightRects.isEmpty()) {
+      return null;
+    }
+    int top = Integer.MAX_VALUE;
+    int bottom = Integer.MIN_VALUE;
+    for (RectF rect : quoteHighlightRects) {
+      top = Math.min(top, (int) rect.top);
+      bottom = Math.max(bottom, (int) Math.ceil(rect.bottom));
+    }
+    return new Rect(0, top, 0, bottom);
+  }
+
+  private void drawQuoteHighlight (View view, Canvas c, boolean foreground) {
+    if (quoteHighlightRects != null && (quoteHighlightRects.isEmpty() || quoteRevokeFactor == 1f)) {
+      return;
+    }
+    float zFactor = useBubbles() ? quoteShrinkFactor : 0f;
+    float alpha = (foreground ? zFactor : 1f - zFactor) * (1f - quoteRevokeFactor);
+    if (alpha == 0f) {
+      return;
+    }
+    RectF fullRect = new RectF(0f, findTopEdge(), view.getMeasuredWidth(), findBottomEdge());
+    quoteHighlightPath.rewind();
+    quoteHighlightPath.setFillType(Path.FillType.WINDING);
+    for (RectF targetRect : quoteHighlightRects) {
+      quoteHighlightPath.addRect(
+        MathUtils.fromTo(fullRect.left, targetRect.left, quoteShrinkFactor),
+        MathUtils.fromTo(fullRect.top, targetRect.top, quoteShrinkFactor),
+        MathUtils.fromTo(fullRect.right, targetRect.right, quoteShrinkFactor),
+        MathUtils.fromTo(fullRect.bottom, targetRect.bottom, quoteShrinkFactor),
+        Path.Direction.CW
+      );
+    }
+    c.drawPath(quoteHighlightPath, Paints.fillingPaint(ColorUtils.alphaColor(alpha, getSelectionColor(1f))));
+  }
+
+  private void setQuoteShrinkFactor (float factor) {
+    if (this.quoteShrinkFactor != factor) {
+      if (factor != 0f && quoteHighlightNeedsRefresh) {
+        quoteHighlightNeedsRefresh = false;
+        if (quoteHighlightText != null) {
+          List<RectF> rects = findQuoteHighlightRects(quoteHighlightText);
+          if (rects != null && !rects.isEmpty()) {
+            quoteHighlightRects = rects;
+          }
+        }
+      }
+      this.quoteShrinkFactor = factor;
+      invalidateParentOrSelf(false);
+    }
+  }
+
+  private void setQuoteRevokeFactor (float factor) {
+    if (this.quoteRevokeFactor != factor) {
+      this.quoteRevokeFactor = factor;
+      invalidateParentOrSelf(false);
+      if (factor == 1f) {
+        cancelQuoteHighlight(false);
+        setHighlight(0f);
+      }
     }
   }
 

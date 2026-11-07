@@ -113,4 +113,5 @@
   <string name="moex_birthdayBarSubtitle">Birthday today</string>
   <string name="moex_birthdaysTodayTitle">%1$d birthdays today</string>
   <string name="ProfileChannel">Profile Channel</string>
+  <string name="OriginalQuoteNotFound">Original quote was not found</string>
 </resources>

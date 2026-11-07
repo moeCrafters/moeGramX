@@ -960,7 +960,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
     pinnedMessagesBar.setMessageListener(new PinnedMessagesBar.MessageListener() {
       @Override
       public void onMessageClick (PinnedMessagesBar view, TdApi.Message message, TdApi.InputTextQuote quote) {
-        highlightMessage(new MessageId(message.chatId, message.id));
+        highlightMessage(new MessageId(message.chatId, message.id), quote);
       }
 
       @Override
@@ -2089,7 +2089,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
       viewScheduledMessages(false);
     } else if (viewId == R.id.msg_bottomReply) {
       if (reply != null) {
-        highlightMessage(reply.toMessageId());
+        highlightMessage(reply.toMessageId(), reply.quote);
       }
     } else if (viewId == R.id.btn_mute) {
       if (chat != null) {
@@ -2468,6 +2468,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
     public final TdApi.ChatList chatList;
     public final MessageId highlightMessageId;
     public final int highlightMode;
+    public @Nullable TdApi.InputTextQuote highlightQuote;
 
     public final boolean inPreviewMode;
     public final int previewMode;
@@ -2693,7 +2694,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
     this.previewSearchQuery = args.searchQuery;
     this.previewSearchSender = args.searchSender;
     this.previewSearchFilter = args.searchFilter;
-    this.manager.setHighlightMessageId(args.highlightMessageId, args.highlightMode);
+    this.manager.setHighlightMessageId(args.highlightMessageId, args.highlightMode, args.highlightQuote);
     this.inPreviewMode = args.inPreviewMode;
     this.previewMode = args.previewMode;
     this.openKeyboard = args.openKeyboard;
@@ -6533,6 +6534,15 @@ public class MessagesController extends ViewController<MessagesController.Argume
     showMessagesListIfNeeded();
   }
 
+  public void highlightMessage (MessageId messageId, @Nullable TdApi.InputTextQuote quote) {
+    if (inPreviewSearchMode()) {
+      tdlib.ui().openMessage(this, getChatId(), messageId, null);
+      return;
+    }
+    manager.highlightMessage(messageId, MessagesManager.HIGHLIGHT_MODE_NORMAL, null, pagerScrollPosition == 0, quote);
+    showMessagesListIfNeeded();
+  }
+
   public void highlightMessage (MessageId messageId, MessageId fromMessageId) {
     if (inOnlyFoundMode()) {
       manager.setHighlightMessageId(messageId, MessagesManager.HIGHLIGHT_MODE_NORMAL);
@@ -6543,12 +6553,26 @@ public class MessagesController extends ViewController<MessagesController.Argume
     highlightMessage(messageId, returnToMessageIds);
   }
 
+  public void highlightMessage (MessageId messageId, MessageId fromMessageId, @Nullable TdApi.InputTextQuote quote) {
+    if (inOnlyFoundMode()) {
+      manager.setHighlightMessageId(messageId, MessagesManager.HIGHLIGHT_MODE_NORMAL);
+      onSetSearchFilteredShowMode(false);
+      return;
+    }
+    long[] returnToMessageIds = manager.extendReturnToMessageIdStack(fromMessageId);
+    highlightMessage(messageId, returnToMessageIds, quote);
+  }
+
   public void highlightMessage (MessageId messageId, long[] returnToMessageIds) {
+    highlightMessage(messageId, returnToMessageIds, null);
+  }
+
+  public void highlightMessage (MessageId messageId, long[] returnToMessageIds, @Nullable TdApi.InputTextQuote quote) {
     if (inPreviewSearchMode()) {
       tdlib.ui().openMessage(this, getChatId(), messageId, null);
       return;
     }
-    manager.highlightMessage(messageId, MessagesManager.HIGHLIGHT_MODE_NORMAL, returnToMessageIds, pagerScrollPosition == 0);
+    manager.highlightMessage(messageId, MessagesManager.HIGHLIGHT_MODE_NORMAL, returnToMessageIds, pagerScrollPosition == 0, quote);
     showMessagesListIfNeeded();
   }
 
@@ -6836,10 +6860,10 @@ public class MessagesController extends ViewController<MessagesController.Argume
   @Override
   public void onMessageHighlightRequested (ReplyBarView view, TdApi.Message message, @Nullable TdApi.InputTextQuote quote) {
     if (message.chatId == getChatId()) {
-      highlightMessage(new MessageId(message.chatId, message.id));
+      highlightMessage(new MessageId(message.chatId, message.id), quote);
     } else {
       if (anotherChatHint != null && anotherChatHint.isVisible()) {
-        tdlib.ui().openMessage(this, message.chatId, new MessageId(message.chatId, message.id), new TdlibUi.UrlOpenParameters().controller(this));
+        tdlib.ui().openMessage(this, message.chatId, new MessageId(message.chatId, message.id), new TdlibUi.UrlOpenParameters().controller(this), quote);
         return;
       }
       anotherChatHint = context()
