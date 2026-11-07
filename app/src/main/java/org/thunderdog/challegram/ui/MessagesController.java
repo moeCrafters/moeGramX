@@ -6576,6 +6576,34 @@ public class MessagesController extends ViewController<MessagesController.Argume
     showMessagesListIfNeeded();
   }
 
+  private static final int MAX_QUOTE_LENGTH = 1024;
+
+  // trim quotes to 1024 characters to avoid MESSAGE_TOO_LONG error
+  private static TdApi.InputTextQuote trimQuote (@Nullable TdApi.InputTextQuote quote) {
+    if (quote == null || Td.isEmpty(quote.text) || quote.text.text.length() <= MAX_QUOTE_LENGTH) {
+      return quote;
+    }
+    final String string = quote.text.text;
+    int end = MAX_QUOTE_LENGTH;
+    if (Character.isHighSurrogate(string.charAt(end - 1))) {
+      end--;
+    }
+    TdApi.TextEntity[] entities = quote.text.entities;
+    List<TdApi.TextEntity> trimmedEntities = new ArrayList<>();
+    if (entities != null) {
+      for (TdApi.TextEntity entity : entities) {
+        if (entity.offset >= end) {
+          continue;
+        }
+        if (entity.offset + entity.length > end) {
+          entity = new TdApi.TextEntity(entity.offset, end - entity.offset, entity.type);
+        }
+        trimmedEntities.add(entity);
+      }
+    }
+    return new TdApi.InputTextQuote(new TdApi.FormattedText(string.substring(0, end), trimmedEntities.toArray(new TdApi.TextEntity[0])), quote.position);
+  }
+
   public static class ReplyInfo {
     public final Tdlib tdlib;
     public final MessageWithProperties message;
@@ -6592,7 +6620,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
     public ReplyInfo (Tdlib tdlib, MessageWithProperties message, @Nullable TdApi.InputTextQuote quote, int checklistTaskId, String pollOptionId, long inChatId, @Nullable TdApi.MessageTopic inTopicId) {
       this.tdlib = tdlib;
       this.message = message;
-      this.quote = quote;
+      this.quote = trimQuote(quote);
       this.checklistTaskId = checklistTaskId;
       this.pollOptionId = pollOptionId;
       this.inChatId = inChatId;
