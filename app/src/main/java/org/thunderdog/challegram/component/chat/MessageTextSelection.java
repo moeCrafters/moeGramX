@@ -55,13 +55,13 @@ public class MessageTextSelection implements Text.SelectionDelegate {
   }
 
   @Override
-  public void onQuoteRequested (String quote) {
+  public void onQuoteRequested (String quote, int position) {
     MessagesController c = message.messagesController();
     if (c == null || !canQuote()) {
       return;
     }
     TdApi.FormattedText formattedText = new TdApi.FormattedText(quote, null);
-    TdApi.InputTextQuote inputQuote = new TdApi.InputTextQuote(formattedText, 0);
+    TdApi.InputTextQuote inputQuote = new TdApi.InputTextQuote(formattedText, position);
     c.showReply(
       new MessageWithProperties(message.getMessage(), message.lastMessageProperties()),
       inputQuote, 0, "", true, true

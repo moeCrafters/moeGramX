@@ -3195,7 +3195,7 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
       TGMessage msg = adapter.getMessage(index);
       msg.highlight(true);
       if (quote != null && !Td.isEmpty(quote.text)) {
-        if (!msg.startQuoteHighlight(quote.text.text)) {
+        if (!msg.startQuoteHighlight(quote.text.text, quote.position)) {
           UI.showToast(Lang.getString(R.string.OriginalQuoteNotFound), Toast.LENGTH_SHORT);
         }
       }

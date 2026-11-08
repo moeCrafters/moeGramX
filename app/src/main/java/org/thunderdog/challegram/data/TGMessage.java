@@ -6815,6 +6815,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
 
   private @Nullable List<RectF> quoteHighlightRects;
   private @Nullable String quoteHighlightText;
+  private int quoteHighlightPosition;
   private float quoteShrinkFactor;
   private float quoteRevokeFactor;
   private boolean quoteHighlightNeedsRefresh;
@@ -6834,16 +6835,17 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
     quoteRevokeAnimator.animateTo(1f);
   };
 
-  public boolean startQuoteHighlight (String quote) {
+  public boolean startQuoteHighlight (String quote, int position) {
     cancelQuoteHighlight(false);
     if (StringUtils.isEmpty(quote)) {
       return false;
     }
-    List<RectF> rects = findQuoteHighlightRects(quote);
+    List<RectF> rects = findQuoteHighlightRects(quote, position);
     if (rects == null) {
       return false;
     }
     quoteHighlightText = quote;
+    quoteHighlightPosition = position;
     quoteHighlightRects = rects;
     cancelHighlightRevoke();
     quoteHighlightNeedsRefresh = true;
@@ -6870,6 +6872,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
     }
     tdlib().ui().removeCallbacks(quoteHighlightFadeRunnable);
     quoteHighlightText = null;
+    quoteHighlightPosition = 0;
     quoteHighlightRects = null;
     quoteShrinkFactor = 0f;
     quoteRevokeFactor = 0f;
@@ -6879,7 +6882,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
     }
   }
 
-  private @Nullable List<RectF> findQuoteHighlightRects (String quote) {
+  private @Nullable List<RectF> findQuoteHighlightRects (String quote, int position) {
     Text text = getTextSelectionLayout();
     if (text == null || StringUtils.isEmpty(quote)) {
       return null;
@@ -6888,9 +6891,18 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
     if (haystack == null) {
       return null;
     }
-    int index = haystack.indexOf(quote);
-    if (index == -1) {
+    // find closest occurrence of quoted text to position
+    int index;
+    int forwardIndex = haystack.indexOf(quote, position);
+    int backwardIndex = haystack.lastIndexOf(quote, position);
+    if (forwardIndex == -1 && backwardIndex == -1) {
       return null;
+    } else if (backwardIndex == -1 || forwardIndex == -1) {
+      index = backwardIndex == -1 ? forwardIndex : backwardIndex;
+    } else {
+      int forwardDistance = Math.abs(forwardIndex - position);
+      int backwardDistance = Math.abs(position - backwardIndex);
+      index = (forwardDistance < backwardDistance) ? forwardIndex : backwardIndex;
     }
     List<RectF> localRects = new ArrayList<>();
     if (!text.getRangeRects(index, index + quote.length(), localRects) || localRects.isEmpty()) {
@@ -6912,7 +6924,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
     if (quoteHighlightText == null) {
       return null;
     }
-    List<RectF> rects = findQuoteHighlightRects(quoteHighlightText);
+    List<RectF> rects = findQuoteHighlightRects(quoteHighlightText, quoteHighlightPosition);
     if (rects == null || rects.isEmpty()) {
       return null;
     }
@@ -6962,7 +6974,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
       if (factor != 0f && quoteHighlightNeedsRefresh) {
         quoteHighlightNeedsRefresh = false;
         if (quoteHighlightText != null) {
-          List<RectF> rects = findQuoteHighlightRects(quoteHighlightText);
+          List<RectF> rects = findQuoteHighlightRects(quoteHighlightText, quoteHighlightPosition);
           if (rects != null && !rects.isEmpty()) {
             quoteHighlightRects = rects;
           }

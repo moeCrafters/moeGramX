@@ -1558,7 +1558,7 @@ public class MessagesLoader implements Client.ResultHandler {
         case MessagesManager.HIGHLIGHT_MODE_NORMAL_NEXT: {
           scrollItem.highlight(false);
           if (scrollHighlightQuote != null && !Td.isEmpty(scrollHighlightQuote.text)) {
-            if (!scrollItem.startQuoteHighlight(scrollHighlightQuote.text.text)) {
+            if (!scrollItem.startQuoteHighlight(scrollHighlightQuote.text.text, scrollHighlightQuote.position)) {
               UI.showToast(Lang.getString(R.string.OriginalQuoteNotFound), Toast.LENGTH_SHORT);
             }
           }

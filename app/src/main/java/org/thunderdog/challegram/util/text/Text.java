@@ -3109,7 +3109,7 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterTextPart, List
     default boolean canQuote () { return false; }
     default float getOffsetX () { return 0f; }
     default float getOffsetY () { return 0f; }
-    default void onQuoteRequested (String quote) { }
+    default void onQuoteRequested (String quote, int position) { }
   }
 
   private @Nullable Selection selection;

@@ -491,9 +491,10 @@ class TextSelectionOverlay implements FactorAnimator.Target {
       actionMode.invalidate();
     } else if (id == R.id.btn_quote) {
       String value = selection.getSelectedText();
+      int position = selection.start;
       text.dismissSelection(true);
       if (delegate != null) {
-        delegate.onQuoteRequested(value);
+        delegate.onQuoteRequested(value, position);
       }
     } else if (id == android.R.id.copy) {
       String value = selection.getSelectedText();
