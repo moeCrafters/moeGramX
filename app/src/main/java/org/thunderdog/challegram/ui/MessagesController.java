@@ -103,6 +103,7 @@ import org.thunderdog.challegram.component.chat.InputView;
 import org.thunderdog.challegram.component.chat.InvisibleImageView;
 import org.thunderdog.challegram.component.chat.JoinRequestsView;
 import org.thunderdog.challegram.component.chat.MessageSenderButton;
+import org.thunderdog.challegram.component.chat.MessageTextSelection;
 import org.thunderdog.challegram.component.chat.MessageView;
 import org.thunderdog.challegram.component.chat.MessageViewGroup;
 import org.thunderdog.challegram.component.chat.MessagesAdapter;
@@ -820,6 +821,11 @@ public class MessagesController extends ViewController<MessagesController.Argume
     if (previewMode == PREVIEW_MODE_NONE && !isInForceTouchMode()) {
       inputView = new InputView(context, tdlib, this) {
         @Override
+        protected boolean onKeyboardBackPress () {
+          return messageTextSelection != null && messageTextSelection.dismiss(true);
+        }
+
+        @Override
         protected void onMeasure (int widthMeasureSpec, int heightMeasureSpec) {
           super.onMeasure(widthMeasureSpec, heightMeasureSpec);
           updateButtonsY();
@@ -954,7 +960,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
     pinnedMessagesBar.setMessageListener(new PinnedMessagesBar.MessageListener() {
       @Override
       public void onMessageClick (PinnedMessagesBar view, TdApi.Message message, TdApi.InputTextQuote quote) {
-        highlightMessage(new MessageId(message.chatId, message.id));
+        highlightMessage(new MessageId(message.chatId, message.id), quote);
       }
 
       @Override
@@ -1811,6 +1817,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
 
   @Override
   public void onLeaveSelectMode () {
+    dismissMessageTextSelection();
     if (pagerContentView != null) {
       pagerContentView.setPagingEnabled(true);
     }
@@ -2082,7 +2089,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
       viewScheduledMessages(false);
     } else if (viewId == R.id.msg_bottomReply) {
       if (reply != null) {
-        highlightMessage(reply.toMessageId());
+        highlightMessage(reply.toMessageId(), reply.quote);
       }
     } else if (viewId == R.id.btn_mute) {
       if (chat != null) {
@@ -2461,6 +2468,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
     public final TdApi.ChatList chatList;
     public final MessageId highlightMessageId;
     public final int highlightMode;
+    public @Nullable TdApi.InputTextQuote highlightQuote;
 
     public final boolean inPreviewMode;
     public final int previewMode;
@@ -2686,7 +2694,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
     this.previewSearchQuery = args.searchQuery;
     this.previewSearchSender = args.searchSender;
     this.previewSearchFilter = args.searchFilter;
-    this.manager.setHighlightMessageId(args.highlightMessageId, args.highlightMode);
+    this.manager.setHighlightMessageId(args.highlightMessageId, args.highlightMode, args.highlightQuote);
     this.inPreviewMode = args.inPreviewMode;
     this.previewMode = args.previewMode;
     this.openKeyboard = args.openKeyboard;
@@ -4239,6 +4247,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
 
   @Override
   public void onBlur () {
+    dismissMessageTextSelection();
     saveDraft();
 
     super.onBlur();
@@ -4324,6 +4333,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
 
   @Override
   public void destroy () {
+    dismissMessageTextSelection();
     resetSelectableControl();
 
     discardAttachedFiles(false);
@@ -5591,6 +5601,31 @@ public class MessagesController extends ViewController<MessagesController.Argume
     return chat != null && tdlib.canSendSendSomeMedia(chat) && !isEventLog();
   }
 
+  // Text selection
+
+  private @Nullable MessageTextSelection messageTextSelection;
+
+  public boolean selectMessageText (MessageView anchor, float x, float y) {
+    TGMessage message = anchor.getMessage();
+    if (message == null || message.isDestroyed() || anchor.getWindowToken() == null || (!isFocused() && !getParentOrSelf().isFocused())) {
+      return false;
+    }
+    Text text = message.findTextSelection(x, y);
+    if (text == null || !message.canSelectText(text)) {
+      return false;
+    }
+    dismissMessageTextSelection();
+    messageTextSelection = new MessageTextSelection(anchor, message, text);
+    return messageTextSelection.show(x, y);
+  }
+
+  private void dismissMessageTextSelection () {
+    if (messageTextSelection != null) {
+      messageTextSelection.dismiss(false);
+      messageTextSelection = null;
+    }
+  }
+
   // test
 
   private OptionDelegate newMessageOptionDelegate (final MessageContext context) {
@@ -6499,6 +6534,15 @@ public class MessagesController extends ViewController<MessagesController.Argume
     showMessagesListIfNeeded();
   }
 
+  public void highlightMessage (MessageId messageId, @Nullable TdApi.InputTextQuote quote) {
+    if (inPreviewSearchMode()) {
+      tdlib.ui().openMessage(this, getChatId(), messageId, null);
+      return;
+    }
+    manager.highlightMessage(messageId, MessagesManager.HIGHLIGHT_MODE_NORMAL, null, pagerScrollPosition == 0, quote);
+    showMessagesListIfNeeded();
+  }
+
   public void highlightMessage (MessageId messageId, MessageId fromMessageId) {
     if (inOnlyFoundMode()) {
       manager.setHighlightMessageId(messageId, MessagesManager.HIGHLIGHT_MODE_NORMAL);
@@ -6509,13 +6553,55 @@ public class MessagesController extends ViewController<MessagesController.Argume
     highlightMessage(messageId, returnToMessageIds);
   }
 
+  public void highlightMessage (MessageId messageId, MessageId fromMessageId, @Nullable TdApi.InputTextQuote quote) {
+    if (inOnlyFoundMode()) {
+      manager.setHighlightMessageId(messageId, MessagesManager.HIGHLIGHT_MODE_NORMAL);
+      onSetSearchFilteredShowMode(false);
+      return;
+    }
+    long[] returnToMessageIds = manager.extendReturnToMessageIdStack(fromMessageId);
+    highlightMessage(messageId, returnToMessageIds, quote);
+  }
+
   public void highlightMessage (MessageId messageId, long[] returnToMessageIds) {
+    highlightMessage(messageId, returnToMessageIds, null);
+  }
+
+  public void highlightMessage (MessageId messageId, long[] returnToMessageIds, @Nullable TdApi.InputTextQuote quote) {
     if (inPreviewSearchMode()) {
       tdlib.ui().openMessage(this, getChatId(), messageId, null);
       return;
     }
-    manager.highlightMessage(messageId, MessagesManager.HIGHLIGHT_MODE_NORMAL, returnToMessageIds, pagerScrollPosition == 0);
+    manager.highlightMessage(messageId, MessagesManager.HIGHLIGHT_MODE_NORMAL, returnToMessageIds, pagerScrollPosition == 0, quote);
     showMessagesListIfNeeded();
+  }
+
+  private static final int MAX_QUOTE_LENGTH = 1024;
+
+  // trim quotes to 1024 characters to avoid MESSAGE_TOO_LONG error
+  private static TdApi.InputTextQuote trimQuote (@Nullable TdApi.InputTextQuote quote) {
+    if (quote == null || Td.isEmpty(quote.text) || quote.text.text.length() <= MAX_QUOTE_LENGTH) {
+      return quote;
+    }
+    final String string = quote.text.text;
+    int end = MAX_QUOTE_LENGTH;
+    if (Character.isHighSurrogate(string.charAt(end - 1))) {
+      end--;
+    }
+    TdApi.TextEntity[] entities = quote.text.entities;
+    List<TdApi.TextEntity> trimmedEntities = new ArrayList<>();
+    if (entities != null) {
+      for (TdApi.TextEntity entity : entities) {
+        if (entity.offset >= end) {
+          continue;
+        }
+        if (entity.offset + entity.length > end) {
+          entity = new TdApi.TextEntity(entity.offset, end - entity.offset, entity.type);
+        }
+        trimmedEntities.add(entity);
+      }
+    }
+    return new TdApi.InputTextQuote(new TdApi.FormattedText(string.substring(0, end), trimmedEntities.toArray(new TdApi.TextEntity[0])), quote.position);
   }
 
   public static class ReplyInfo {
@@ -6534,7 +6620,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
     public ReplyInfo (Tdlib tdlib, MessageWithProperties message, @Nullable TdApi.InputTextQuote quote, int checklistTaskId, String pollOptionId, long inChatId, @Nullable TdApi.MessageTopic inTopicId) {
       this.tdlib = tdlib;
       this.message = message;
-      this.quote = quote;
+      this.quote = trimQuote(quote);
       this.checklistTaskId = checklistTaskId;
       this.pollOptionId = pollOptionId;
       this.inChatId = inChatId;
@@ -6802,10 +6888,10 @@ public class MessagesController extends ViewController<MessagesController.Argume
   @Override
   public void onMessageHighlightRequested (ReplyBarView view, TdApi.Message message, @Nullable TdApi.InputTextQuote quote) {
     if (message.chatId == getChatId()) {
-      highlightMessage(new MessageId(message.chatId, message.id));
+      highlightMessage(new MessageId(message.chatId, message.id), quote);
     } else {
       if (anotherChatHint != null && anotherChatHint.isVisible()) {
-        tdlib.ui().openMessage(this, message.chatId, new MessageId(message.chatId, message.id), new TdlibUi.UrlOpenParameters().controller(this));
+        tdlib.ui().openMessage(this, message.chatId, new MessageId(message.chatId, message.id), new TdlibUi.UrlOpenParameters().controller(this), quote);
         return;
       }
       anotherChatHint = context()

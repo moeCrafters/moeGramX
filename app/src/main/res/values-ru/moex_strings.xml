@@ -89,4 +89,5 @@
   <string name="ProxyAlertCheck">проверить</string>
   <string name="moex_birthdayBarSubtitle">День рождения сегодня</string>
   <string name="moex_birthdaysTodayTitle">%1$d дней рождения сегодня</string>
+  <string name="OriginalQuoteNotFound">Цитируемый текст не найден</string>
 </resources>
